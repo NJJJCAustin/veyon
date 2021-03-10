@@ -1,7 +1,7 @@
 /*
  * ExternalVncServer.h - declaration of ExternalVncServer class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -71,13 +71,18 @@ public:
 		return Plugin::NoFlags;
 	}
 
+	QStringList supportedSessionTypes() const override
+	{
+		return {};
+	}
+
 	void upgrade( const QVersionNumber& oldVersion ) override;
 
 	QWidget* configurationWidget() override;
 
 	void prepareServer() override;
 
-	void runServer( int serverPort, const Password& password ) override;
+	bool runServer( int serverPort, const Password& password ) override;
 
 	int configuredServerPort() override;
 

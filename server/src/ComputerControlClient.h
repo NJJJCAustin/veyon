@@ -1,7 +1,7 @@
 /*
  * ComputerControlClient.h - header file for the ComputerControlClient class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -46,6 +46,11 @@ public:
 
 	bool receiveClientMessage() override;
 
+	VncServerClient* serverClient()
+	{
+		return &m_serverClient;
+	}
+
 protected:
 	VncClientProtocol& clientProtocol() override
 	{
@@ -60,7 +65,7 @@ protected:
 private:
 	ComputerControlServer* m_server;
 
-	VncServerClient m_serverClient;
+	VncServerClient m_serverClient{};
 
 	VeyonServerProtocol m_serverProtocol;
 	VncClientProtocol m_clientProtocol;

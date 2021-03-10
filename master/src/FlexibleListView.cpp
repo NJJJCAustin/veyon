@@ -1,7 +1,7 @@
 /*
  * FlexibleListView.cpp - list view with flexible icon positions
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -22,6 +22,7 @@
  *
  */
 
+#include <QHelpEvent>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QUuid>
@@ -135,6 +136,42 @@ void FlexibleListView::doItemsLayout()
 
 
 
+bool FlexibleListView::viewportEvent( QEvent* event )
+{
+	const auto ret = QListView::viewportEvent( event );
+	if( event->type() == QEvent::ToolTip )
+	{
+		m_toolTipPos = ret ? static_cast<QHelpEvent*>(event)->pos() : QPoint{};
+	}
+
+	return ret;
+}
+
+
+
+void FlexibleListView::dataChanged( const QModelIndex& topLeft, const QModelIndex& bottomRight, const QVector<int>& roles )
+{
+	QListView::dataChanged( topLeft, bottomRight, roles );
+
+	if( m_toolTipPos.isNull() == false && ( roles.isEmpty() || roles.contains(Qt::ToolTipRole) ) )
+	{
+		if( viewport()->mapToGlobal(m_toolTipPos) != QCursor::pos() )
+		{
+			m_toolTipPos = QPoint();
+			return;
+		}
+
+		const auto index = indexAt( m_toolTipPos );
+		if( index.row() >= topLeft.row() && index.row() <= bottomRight.row() )
+		{
+			QHelpEvent he( QEvent::ToolTip, m_toolTipPos, viewport()->mapToGlobal(m_toolTipPos) );
+			QListView::viewportEvent( &he );
+		}
+	}
+}
+
+
+
 void FlexibleListView::restorePositions()
 {
 	auto m = model();
@@ -187,7 +224,8 @@ QSizeF FlexibleListView::effectiveGridSize() const
 	{
 		return rectForIndex( m->index( 0, 0 ) ).size() + QSize( spacing(), spacing() );
 	}
-	else if( iconSize().isEmpty() == false )
+
+	if( iconSize().isEmpty() == false )
 	{
 		return iconSize() + QSize( spacing(), spacing() );
 	}

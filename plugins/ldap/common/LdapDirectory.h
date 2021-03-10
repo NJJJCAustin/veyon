@@ -1,7 +1,7 @@
 /*
  * LdapDirectory.h - class representing the LDAP directory and providing access to directory entries
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -72,7 +72,6 @@ public:
 	QStringList locationsOfComputer( const QString& computerDn );
 
 	QString userLoginName( const QString& userDn );
-	QString computerDisplayName( const QString& computerDn );
 	QString computerHostName( const QString& computerDn );
 	QString computerMacAddress( const QString& computerDn );
 	QString groupMemberUserIdentification( const QString& userDn );

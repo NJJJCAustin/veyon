@@ -1,7 +1,7 @@
 /*
  * LinuxInputDeviceFunctions.cpp - implementation of LinuxInputDeviceFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -24,19 +24,15 @@
 
 #include "PlatformServiceFunctions.h"
 #include "LinuxInputDeviceFunctions.h"
+#include "LinuxKeyboardInput.h"
 #include "LinuxKeyboardShortcutTrapper.h"
 
 #include <X11/XKBlib.h>
 
 
-LinuxInputDeviceFunctions::LinuxInputDeviceFunctions() :
-	m_inputDevicesDisabled( false ),
-	m_origKeyTable( nullptr ),
-	m_keyCodeMin( 0 ),
-	m_keyCodeMax( 0 ),
-	m_keyCodeCount( 0 ),
-	m_keySymsPerKeyCode( 0 )
+LinuxInputDeviceFunctions::~LinuxInputDeviceFunctions()
 {
+	delete m_keyboardInput;
 }
 
 
@@ -72,6 +68,25 @@ KeyboardShortcutTrapper* LinuxInputDeviceFunctions::createKeyboardShortcutTrappe
 
 
 
+void LinuxInputDeviceFunctions::synthesizeKeyEvent( LinuxInputDeviceFunctions::KeySym keySym, bool down )
+{
+	if( m_keyboardInput == nullptr )
+	{
+		m_keyboardInput = new LinuxKeyboardInput;
+	}
+
+	if( down )
+	{
+		m_keyboardInput->pressKey( keySym );
+	}
+	else
+	{
+		m_keyboardInput->releaseKey( keySym );
+	}
+}
+
+
+
 void LinuxInputDeviceFunctions::setEmptyKeyMapTable()
 {
 	if( m_origKeyTable )
@@ -79,23 +94,20 @@ void LinuxInputDeviceFunctions::setEmptyKeyMapTable()
 		XFree( m_origKeyTable );
 	}
 
-	Display* display = XOpenDisplay( nullptr );
+	auto display = XOpenDisplay( nullptr );
 	XDisplayKeycodes( display, &m_keyCodeMin, &m_keyCodeMax );
 	m_keyCodeCount = m_keyCodeMax - m_keyCodeMin;
 
-	m_origKeyTable = XGetKeyboardMapping( display, static_cast<KeyCode>( m_keyCodeMin ),
-										  m_keyCodeCount, &m_keySymsPerKeyCode );
+	m_origKeyTable = XGetKeyboardMapping( display, ::KeyCode( m_keyCodeMin ), m_keyCodeCount, &m_keySymsPerKeyCode );
 
-	KeySym* newKeyTable = XGetKeyboardMapping( display, static_cast<KeyCode>( m_keyCodeMin ),
-											   m_keyCodeCount, &m_keySymsPerKeyCode );
+	auto newKeyTable = XGetKeyboardMapping( display, ::KeyCode( m_keyCodeMin ), m_keyCodeCount, &m_keySymsPerKeyCode );
 
 	for( int i = 0; i < m_keyCodeCount * m_keySymsPerKeyCode; i++ )
 	{
 		newKeyTable[i] = 0;
 	}
 
-	XChangeKeyboardMapping( display, m_keyCodeMin, m_keySymsPerKeyCode,
-							newKeyTable, m_keyCodeCount );
+	XChangeKeyboardMapping( display, m_keyCodeMin, m_keySymsPerKeyCode, newKeyTable, m_keyCodeCount );
 	XFlush( display );
 	XFree( newKeyTable );
 	XCloseDisplay( display );
@@ -108,7 +120,7 @@ void LinuxInputDeviceFunctions::restoreKeyMapTable()
 	Display* display = XOpenDisplay( nullptr );
 
 	XChangeKeyboardMapping( display, m_keyCodeMin, m_keySymsPerKeyCode,
-							static_cast<KeySym *>( m_origKeyTable ), m_keyCodeCount );
+							static_cast<::KeySym *>( m_origKeyTable ), m_keyCodeCount );
 
 	XFlush( display );
 	XCloseDisplay( display );

@@ -1,7 +1,7 @@
 /*
  * ComputerSelectPanel.cpp - provides a view for a network object tree
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -56,7 +56,7 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, Comp
 	ui->addLocationButton->setVisible( VeyonCore::config().showCurrentLocationOnly() &&
 									   VeyonCore::config().allowAddingHiddenLocations() );
 
-	ui->filterLineEdit->setHidden( VeyonCore::config().computerFilterHidden() );
+	ui->filterLineEdit->setHidden( VeyonCore::config().hideComputerFilter() );
 
 	connect( ui->filterLineEdit, &QLineEdit::textChanged,
 			 this, &ComputerSelectPanel::updateFilter );

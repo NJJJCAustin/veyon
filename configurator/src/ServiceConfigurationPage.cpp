@@ -1,7 +1,7 @@
 /*
  * ServiceConfigurationPage.cpp - page for configuring service application
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -36,14 +36,15 @@
 #include "ui_ServiceConfigurationPage.h"
 
 
-ServiceConfigurationPage::ServiceConfigurationPage() :
-	ConfigurationPage(),
+ServiceConfigurationPage::ServiceConfigurationPage( QWidget* parent ) :
+	ConfigurationPage( parent ),
 	ui(new Ui::ServiceConfigurationPage),
 	m_vncServerPluginConfigurationWidget( nullptr )
 {
 	ui->setupUi(this);
 
-	Configuration::UiMapping::setFlags( ui->networkGroupBox, Configuration::Property::Flag::Advanced );
+	Configuration::UiMapping::setFlags( ui->networkPortNumbersGroupBox, Configuration::Property::Flag::Advanced );
+	Configuration::UiMapping::setFlags( ui->miscNetworkSettingsGroupBox, Configuration::Property::Flag::Advanced );
 
 	updateServiceControl();
 	populateVncServerPluginComboBox();
@@ -146,7 +147,7 @@ void ServiceConfigurationPage::updateVncServerPluginConfigurationWidget()
 		}
 	}
 
-	emit widgetsChanged();
+	Q_EMIT widgetsChanged();
 }
 
 

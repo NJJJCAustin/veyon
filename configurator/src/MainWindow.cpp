@@ -1,7 +1,7 @@
 /*
  * MainWindow.cpp - implementation of MainWindow class
  *
- * Copyright (c) 2010-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2010-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -28,6 +28,8 @@
 #include <QFileDialog>
 #include <QPushButton>
 #include <QMessageBox>
+#include <QScrollBar>
+#include <QSettings>
 
 #include "Configuration/JsonStore.h"
 #include "Configuration/UiMapping.h"
@@ -81,11 +83,19 @@ MainWindow::MainWindow( QWidget* parent ) :
 	ui->viewModeStandard->setChecked( true );
 
 	connect( viewModeGroup, &QActionGroup::triggered, this, &MainWindow::updateView );
-	switchToStandardView();
 
 	connect( ui->actionAboutQt, &QAction::triggered, QApplication::instance(), &QApplication::aboutQt );
 
 	connect( &VeyonCore::config(), &VeyonConfiguration::configurationChanged, this, &MainWindow::configurationChanged );
+
+	connect( ui->configPages, &QStackedWidget::currentChanged, this, &MainWindow::updateSizes );
+
+	resize( ui->pageSelector->width() + ui->generalConfigurationPage->minimumSizeHint().width(),
+			ui->generalConfigurationPage->minimumSizeHint().height() );
+
+	restoreGeometry( QSettings{}.value( windowGeometryKey() ).toByteArray() );
+
+	updateView();
 
 	VeyonCore::enforceBranding( this );
 }
@@ -137,16 +147,31 @@ void MainWindow::apply()
 
 
 
-void MainWindow::updateView()
+void MainWindow::closeEvent( QCloseEvent* event )
 {
-	if( ui->viewModeAdvanced->isChecked() )
+	if( m_configChanged &&
+		QMessageBox::question( this, tr( "Unsaved settings" ),
+							   tr( "There are unsaved settings. Quit anyway?" ),
+							   QMessageBox::Yes | QMessageBox::No ) !=
+			QMessageBox::Yes )
 	{
-		switchToAdvancedView();
+		event->ignore();
+		return;
 	}
-	else
-	{
-		switchToStandardView();
-	}
+
+	QSettings{}.setValue( windowGeometryKey(), saveGeometry() );
+
+	event->accept();
+	QMainWindow::closeEvent( event );
+}
+
+
+
+void MainWindow::resizeEvent( QResizeEvent* event )
+{
+	QMainWindow::resizeEvent( event );
+
+	updateSizes();
 }
 
 
@@ -231,6 +256,30 @@ void MainWindow::resetConfiguration()
 void MainWindow::aboutVeyon()
 {
 	AboutDialog( this ).exec();
+}
+
+
+
+void MainWindow::updateSizes()
+{
+	ui->configPages->setMinimumSize( ui->scrollArea->width() - ui->scrollArea->verticalScrollBar()->width(),
+									 ui->configPages->currentWidget()->minimumSizeHint().height() );
+}
+
+
+
+void MainWindow::updateView()
+{
+	if( ui->viewModeAdvanced->isChecked() )
+	{
+		switchToAdvancedView();
+	}
+	else
+	{
+		switchToStandardView();
+	}
+
+	QTimer::singleShot( 0, this, &MainWindow::updateSizes );
 }
 
 
@@ -345,23 +394,4 @@ void MainWindow::loadConfigurationPagePlugins()
 	// adjust minimum size
 	ui->pageSelector->setMinimumSize( ui->pageSelector->sizeHintForColumn(0) + 3 * ui->pageSelector->spacing(),
 									  ui->pageSelector->minimumHeight() );
-}
-
-
-
-void MainWindow::closeEvent( QCloseEvent *closeEvent )
-{
-	if( m_configChanged &&
-		QMessageBox::question( this, tr( "Unsaved settings" ),
-							   tr( "There are unsaved settings. "
-								   "Quit anyway?" ),
-							   QMessageBox::Yes | QMessageBox::No ) !=
-		QMessageBox::Yes )
-	{
-		closeEvent->ignore();
-		return;
-	}
-
-	closeEvent->accept();
-	QMainWindow::closeEvent( closeEvent );
 }

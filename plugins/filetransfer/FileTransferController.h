@@ -1,7 +1,7 @@
 /*
  * FileTransferController.h - declaration of FileTransferController class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -60,7 +60,7 @@ public:
 
 	bool isRunning() const;
 
-signals:
+Q_SIGNALS:
 	void errorOccured( const QString& message );
 	void filesChanged();
 	void progressChanged( int progress );
@@ -89,16 +89,16 @@ private:
 
 	FileTransferPlugin* m_plugin;
 
-	int m_currentFileIndex;
-	QUuid m_currentTransferId;
-	QStringList m_files;
-	Flags m_flags;
-	ComputerControlInterfaceList m_interfaces;
+	int m_currentFileIndex{-1};
+	QUuid m_currentTransferId{};
+	QStringList m_files{};
+	Flags m_flags{Transfer};
+	ComputerControlInterfaceList m_interfaces{};
 
-	FileReadThread* m_fileReadThread;
+	FileReadThread* m_fileReadThread{nullptr};
 
-	FileState m_fileState;
+	FileState m_fileState{FileStateFinished};
 
-	QTimer m_processTimer;
+	QTimer m_processTimer{this};
 
 };

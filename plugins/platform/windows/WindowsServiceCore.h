@@ -1,7 +1,7 @@
 /*
  * WindowsServiceCore.h - header file for WindowsServiceCore class
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,14 +26,15 @@
 
 #include <windows.h>
 
-#include "PlatformServiceCore.h"
+#include "PlatformServiceFunctions.h"
+#include "PlatformSessionManager.h"
 #include "ServiceDataManager.h"
 
-class WindowsServiceCore : public PlatformServiceCore
+class WindowsServiceCore
 {
 public:
-	WindowsServiceCore( const QString& name, std::function<void(void)> serviceMainEntry );
-	~WindowsServiceCore();
+	WindowsServiceCore( const QString& name, const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint );
+	~WindowsServiceCore() = default;
 
 	static WindowsServiceCore* instance();
 
@@ -53,7 +54,7 @@ private:
 	bool reportStatus( DWORD state, DWORD exitCode, DWORD waitHint );
 
 	QSharedPointer<wchar_t> m_name;
-	std::function<void(void)> m_serviceMainEntry;
+	const PlatformServiceFunctions::ServiceEntryPoint& m_serviceEntryPoint;
 
 	static WindowsServiceCore* s_instance;
 	SERVICE_STATUS m_status{};
@@ -62,9 +63,11 @@ private:
 	HANDLE m_serverShutdownEvent{nullptr};
 	QAtomicInt m_sessionChangeEvent{0};
 
-	ServiceDataManager m_dataManager;
+	ServiceDataManager m_dataManager{};
+	PlatformSessionManager m_sessionManager{};
 
 	static constexpr auto SessionPollingInterval = 100;
 	static constexpr auto MinimumServerUptimeTime = 10000;
+	static constexpr auto ServiceStartTimeout = 15000;
 
 } ;

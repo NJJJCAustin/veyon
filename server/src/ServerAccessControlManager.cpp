@@ -1,7 +1,7 @@
 /*
  * ServerAccessControlManager.cpp - implementation of ServerAccessControlManager
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -34,9 +34,7 @@ ServerAccessControlManager::ServerAccessControlManager( FeatureWorkerManager& fe
 														QObject* parent ) :
 	QObject( parent ),
 	m_featureWorkerManager( featureWorkerManager ),
-	m_desktopAccessDialog( desktopAccessDialog ),
-	m_clients(),
-	m_desktopAccessChoices()
+	m_desktopAccessDialog( desktopAccessDialog )
 {
 }
 
@@ -45,9 +43,9 @@ ServerAccessControlManager::ServerAccessControlManager( FeatureWorkerManager& fe
 void ServerAccessControlManager::addClient( VncServerClient* client )
 {
 	const auto plugins = VeyonCore::authenticationManager().plugins();
-	if( plugins.contains( client->authPluginUid() ) )
+	if( plugins.contains( client->authMethodUid() ) )
 	{
-		if( plugins[client->authPluginUid()]->requiresAccessControl() )
+		if( plugins[client->authMethodUid()]->requiresAccessControl() )
 		{
 			performAccessControl( client );
 		}
@@ -74,7 +72,7 @@ void ServerAccessControlManager::removeClient( VncServerClient* client )
 	m_clients.removeAll( client );
 
 	// force all remaining clients to pass access control again as conditions might
-	// have changed (e.g. AccessControlRule::ConditionAccessFromAlreadyConnectedUser)
+	// have changed (e.g. AccessControlRule::Condition::AccessFromAlreadyConnectedUser)
 
 	const VncServerClientList previousClients = m_clients;
 	m_clients.clear();
@@ -88,7 +86,7 @@ void ServerAccessControlManager::removeClient( VncServerClient* client )
 			prevClient->accessControlState() != VncServerClient::AccessControlState::Pending )
 		{
 			vDebug() << "closing connection as client does not pass access control any longer";
-			prevClient->setProtocolState( VncServerProtocol::Close );
+			prevClient->setProtocolState( VncServerProtocol::State::Close );
 		}
 	}
 }
@@ -118,7 +116,8 @@ void ServerAccessControlManager::performAccessControl( VncServerClient* client )
 	const auto accessResult =
 			AccessControlProvider().checkAccess( client->username(),
 												 client->hostAddress(),
-												 connectedUsers() );
+												 connectedUsers(),
+												 client->authMethodUid() );
 
 	switch( accessResult )
 	{
@@ -132,11 +131,11 @@ void ServerAccessControlManager::performAccessControl( VncServerClient* client )
 
 	default:
 		client->setAccessControlState( VncServerClient::AccessControlState::Failed );
-		client->setProtocolState( VncServerProtocol::Close );
+		client->setProtocolState( VncServerProtocol::State::Close );
 		break;
 	}
 
-	emit finished( client );
+	Q_EMIT finished( client );
 }
 
 
@@ -208,7 +207,7 @@ void ServerAccessControlManager::finishDesktopAccessConfirmation( VncServerClien
 	else
 	{
 		client->setAccessControlState( VncServerClient::AccessControlState::Failed );
-		client->setProtocolState( VncServerProtocol::Close );
+		client->setProtocolState( VncServerProtocol::State::Close );
 	}
 }
 

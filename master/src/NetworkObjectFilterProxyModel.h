@@ -1,7 +1,7 @@
 /*
  * NetworkObjectFilterProxyModel.h - header file for NetworkObjectFilterProxyModel
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -43,8 +43,8 @@ protected:
 	bool filterAcceptsRow( int sourceRow, const QModelIndex& sourceParent ) const override;
 
 private:
-	QStringList m_groupList;
-	QStringList m_computerExcludeList;
-	bool m_excludeEmptyGroups;
+	QStringList m_groupList{};
+	QStringList m_computerExcludeList{};
+	bool m_excludeEmptyGroups{false};
 
 };

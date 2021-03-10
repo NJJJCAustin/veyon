@@ -1,7 +1,7 @@
 /*
  * ComputerControlServer.cpp - implementation of ComputerControlServer
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -36,24 +36,16 @@
 
 ComputerControlServer::ComputerControlServer( QObject* parent ) :
 	QObject( parent ),
-	m_allowedIPs(),
-	m_failedAuthHosts(),
-	m_featureManager(),
 	m_featureWorkerManager( *this, m_featureManager ),
 	m_serverAuthenticationManager( this ),
 	m_serverAccessControlManager( m_featureWorkerManager, VeyonCore::builtinFeatures().desktopAccessDialog(), this ),
-	m_vncServer(),
 	m_vncProxyServer( VeyonCore::config().localConnectOnly() || AccessControlProvider().isAccessToLocalComputerDenied() ?
 						  QHostAddress::LocalHost : QHostAddress::Any,
-					  VeyonCore::config().primaryServicePort() + VeyonCore::sessionId(),
+					  VeyonCore::config().veyonServerPort() + VeyonCore::sessionId(),
 					  this,
 					  this )
 {
-	VeyonCore::builtinFeatures().systemTrayIcon().setToolTip(
-				tr( "%1 Service %2 at %3:%4" ).arg( VeyonCore::applicationName(), VeyonCore::versionString(),
-													HostAddress::localFQDN(),
-													QString::number( VeyonCore::config().primaryServicePort() + VeyonCore::sessionId() ) ),
-				m_featureWorkerManager );
+	updateTrayIconToolTip();
 
 	// make app terminate once the VNC server thread has finished
 	connect( &m_vncServer, &VncServer::finished, QCoreApplication::instance(), &QCoreApplication::quit );
@@ -63,6 +55,8 @@ ComputerControlServer::ComputerControlServer( QObject* parent ) :
 
 	connect( &m_serverAccessControlManager, &ServerAccessControlManager::finished,
 			 this, &ComputerControlServer::showAccessControlMessage );
+
+	connect( &m_vncProxyServer, &VncProxyServer::connectionClosed, this, &ComputerControlServer::updateTrayIconToolTip );
 }
 
 
@@ -96,7 +90,13 @@ VncProxyConnection* ComputerControlServer::createVncProxyConnection( QTcpSocket*
 																	 const Password& vncServerPassword,
 																	 QObject* parent )
 {
-	return new ComputerControlClient( this, clientSocket, vncServerPort, vncServerPassword, parent );
+	auto client = new ComputerControlClient( this, clientSocket, vncServerPort, vncServerPassword, parent );
+
+	connect( client, &ComputerControlClient::serverConnectionClosed, this,
+		[=]() { checkForIncompleteAuthentication( client->serverClient() ); },
+		Qt::DirectConnection );
+
+	return client;
 }
 
 
@@ -137,6 +137,21 @@ bool ComputerControlServer::sendFeatureMessageReply( const MessageContext& conte
 
 
 
+void ComputerControlServer::checkForIncompleteAuthentication( VncServerClient* client )
+{
+	// connection to client closed during authentication?
+	if( client->protocolState() == VncServerProtocol::State::AuthenticationMethods ||
+		client->protocolState() == VncServerProtocol::State::Authenticating )
+	{
+		// then mark as failed authentication and report it
+		client->setAuthState( VncServerClient::AuthState::Failed );
+
+		showAuthenticationMessage( client );
+	}
+}
+
+
+
 void ComputerControlServer::showAuthenticationMessage( VncServerClient* client )
 {
 	if( client->authState() == VncServerClient::AuthState::Failed )
@@ -167,7 +182,8 @@ void ComputerControlServer::showAuthenticationMessage( VncServerClient* client )
 
 void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 {
-	if( client->accessControlState() == VncServerClient::AccessControlState::Successful )
+	if( client->accessControlState() == VncServerClient::AccessControlState::Successful &&
+		client->protocolState() == VncServerProtocol::State::AccessControl )
 	{
 		vInfo() << "Access control successful for" << client->hostAddress() << client->username();
 
@@ -181,6 +197,8 @@ void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 						arg( client->username(), fqdn ),
 						m_featureWorkerManager );
 		}
+
+		updateTrayIconToolTip();
 	}
 	else if( client->accessControlState() == VncServerClient::AccessControlState::Failed )
 	{
@@ -205,4 +223,27 @@ void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 			}
 		}
 	}
+}
+
+
+
+void ComputerControlServer::updateTrayIconToolTip()
+{
+	auto toolTip = tr( "%1 Service %2 at %3:%4" ).arg( VeyonCore::applicationName(), VeyonCore::versionString(),
+													   HostAddress::localFQDN(),
+												QString::number( VeyonCore::config().veyonServerPort() + VeyonCore::sessionId() ) );
+
+	QStringList clients;
+	for( const auto* client : m_vncProxyServer.clients() )
+	{
+		const auto clientAddress = HostAddress( client->proxyClientSocket()->peerAddress().toString() );
+		clients.append( clientAddress.tryConvert( HostAddress::Type::FullyQualifiedDomainName ) );
+	}
+
+	if( clients.isEmpty() == false )
+	{
+		toolTip += QLatin1Char('\n') + tr( "Active connections:") + QLatin1Char('\n') + clients.join( QLatin1Char('\n') );
+	}
+
+	VeyonCore::builtinFeatures().systemTrayIcon().setToolTip( toolTip, m_featureWorkerManager );
 }

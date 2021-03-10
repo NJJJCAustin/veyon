@@ -1,7 +1,7 @@
 /*
  * VncProxyConnection.cpp - class representing a connection within VncProxyServer
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -35,23 +35,22 @@ VncProxyConnection::VncProxyConnection( QTcpSocket* clientSocket,
 										int vncServerPort,
 										QObject* parent ) :
 	QObject( parent ),
+	m_vncServerPort( vncServerPort ),
 	m_proxyClientSocket( clientSocket ),
 	m_vncServerSocket( new QTcpSocket( this ) ),
 	m_rfbClientToServerMessageSizes( {
-									 std::pair<int, int>( rfbSetPixelFormat, sz_rfbSetPixelFormatMsg ),
-									 std::pair<int, int>( rfbFramebufferUpdateRequest, sz_rfbFramebufferUpdateRequestMsg ),
-									 std::pair<int, int>( rfbKeyEvent, sz_rfbKeyEventMsg ),
-									 std::pair<int, int>( rfbPointerEvent, sz_rfbPointerEventMsg ),
-									 std::pair<int, int>( rfbXvp, sz_rfbXvpMsg ),
-									 } )
+		{ rfbSetPixelFormat, sz_rfbSetPixelFormatMsg },
+		{ rfbFramebufferUpdateRequest, sz_rfbFramebufferUpdateRequestMsg },
+		{ rfbKeyEvent, sz_rfbKeyEventMsg },
+		{ rfbPointerEvent, sz_rfbPointerEventMsg },
+		{ rfbXvp, sz_rfbXvpMsg },
+		} )
 {
 	connect( m_proxyClientSocket, &QTcpSocket::readyRead, this, &VncProxyConnection::readFromClient );
 	connect( m_vncServerSocket, &QTcpSocket::readyRead, this, &VncProxyConnection::readFromServer );
 
 	connect( m_vncServerSocket, &QTcpSocket::disconnected, this, &VncProxyConnection::clientConnectionClosed );
 	connect( m_proxyClientSocket, &QTcpSocket::disconnected, this, &VncProxyConnection::serverConnectionClosed );
-
-	m_vncServerSocket->connectToHost( QHostAddress::LocalHost, static_cast<quint16>( vncServerPort ) );
 }
 
 
@@ -68,9 +67,16 @@ VncProxyConnection::~VncProxyConnection()
 
 
 
+void VncProxyConnection::start()
+{
+	serverProtocol().start();
+}
+
+
+
 void VncProxyConnection::readFromClient()
 {
-	if( serverProtocol().state() != VncServerProtocol::Running )
+	if( serverProtocol().state() != VncServerProtocol::State::Running )
 	{
 		while( serverProtocol().read() ) // Flawfinder: ignore
 		{
@@ -81,7 +87,7 @@ void VncProxyConnection::readFromClient()
 		// and already have RFB messages in receive queue
 		readFromClientLater();
 	}
-	else if( clientProtocol().state() == VncClientProtocol::Running )
+	else if( clientProtocol().state() == VncClientProtocol::State::Running )
 	{
 		while( receiveClientMessage() )
 		{
@@ -92,13 +98,21 @@ void VncProxyConnection::readFromClient()
 		// try again as client connection is not yet ready and we can't forward data
 		readFromClientLater();
 	}
+
+	if( serverProtocol().state() == VncServerProtocol::State::FramebufferInit &&
+		clientProtocol().state() == VncClientProtocol::State::Disconnected )
+	{
+		m_vncServerSocket->connectToHost( QHostAddress::LocalHost, quint16(m_vncServerPort) );
+
+		clientProtocol().start();
+	}
 }
 
 
 
 void VncProxyConnection::readFromServer()
 {
-	if( clientProtocol().state() != VncClientProtocol::Running )
+	if( clientProtocol().state() != VncClientProtocol::State::Running )
 	{
 		while( clientProtocol().read() ) // Flawfinder: ignore
 		{
@@ -107,7 +121,7 @@ void VncProxyConnection::readFromServer()
 		// did we finish client protocol initialization? then we must not miss this
 		// read signaĺ from server but process it as the server is still waiting
 		// for our response
-		if( clientProtocol().state() == VncClientProtocol::Running )
+		if( clientProtocol().state() == VncClientProtocol::State::Running )
 		{
 			// if client protocol is running we have the server init message which
 			// we can forward to the real client
@@ -116,7 +130,7 @@ void VncProxyConnection::readFromServer()
 			readFromServerLater();
 		}
 	}
-	else if( serverProtocol().state() == VncServerProtocol::Running )
+	else if( serverProtocol().state() == VncServerProtocol::State::Running )
 	{
 		while( receiveServerMessage() )
 		{

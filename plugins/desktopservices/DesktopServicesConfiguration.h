@@ -1,7 +1,7 @@
 /*
  * DesktopServicesConfiguration.h - configuration values for DesktopServices
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -30,5 +30,7 @@
 #define FOREACH_DESKTOP_SERVICES_CONFIG_PROPERTY(OP) \
 	OP( DesktopServicesConfiguration, m_configuration, QJsonArray, predefinedPrograms, setPredefinedPrograms, "PredefinedPrograms", "DesktopServices", QJsonArray(), Configuration::Property::Flag::Standard )	\
 	OP( DesktopServicesConfiguration, m_configuration, QJsonArray, predefinedWebsites, setPredefinedWebsites, "PredefinedWebsites", "DesktopServices", QJsonArray(), Configuration::Property::Flag::Standard )	\
+
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(DesktopServicesConfiguration, FOREACH_DESKTOP_SERVICES_CONFIG_PROPERTY)

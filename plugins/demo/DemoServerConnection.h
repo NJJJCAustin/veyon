@@ -1,7 +1,7 @@
 /*
  * DemoServerConnection.h - header file for DemoServerConnection class
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -33,32 +33,36 @@ class DemoServer;
 // the demo server creates an instance of this class for each client connection,
 // i.e. each client is connected to a different server thread for best
 // performance
-class DemoServerConnection : public QObject
+class DemoServerConnection : public QThread
 {
 	Q_OBJECT
 public:
 	static constexpr int ProtocolRetryTime = 250;
 
-	DemoServerConnection( const DemoAuthentication& authentication, QTcpSocket* socket, DemoServer* demoServer );
-	~DemoServerConnection() override;
+	DemoServerConnection( DemoServer* demoServer, const DemoAuthentication& authentication, quintptr socketDescriptor );
+	~DemoServerConnection() = default;
 
 private:
+	void run() override;
+
 	void processClient();
 	void sendFramebufferUpdate();
 
 	bool receiveClientMessage();
 
+	const DemoAuthentication& m_authentication;
 	DemoServer* m_demoServer;
 
-	QTcpSocket* m_socket;
+	quintptr m_socketDescriptor;
+	QTcpSocket* m_socket{nullptr};
 
-	VncServerClient m_vncServerClient;
-	DemoServerProtocol m_serverProtocol;
+	VncServerClient m_vncServerClient{};
+	DemoServerProtocol* m_serverProtocol{nullptr};
 
 	const QMap<int, int> m_rfbClientToServerMessageSizes;
 
-	int m_keyFrame;
-	int m_framebufferUpdateMessageIndex;
+	int m_keyFrame{-1};
+	int m_framebufferUpdateMessageIndex{0};
 
 	const int m_framebufferUpdateInterval;
 

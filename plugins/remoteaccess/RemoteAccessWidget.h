@@ -1,7 +1,7 @@
 /*
  *  RemoteAccessWidget.h - widget containing a VNC view and controls for it
  *
- *  Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ *  Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  *  This file is part of Veyon - https://veyon.io
  *
@@ -38,7 +38,8 @@ class RemoteAccessWidgetToolBar : public QWidget
 {
 	Q_OBJECT
 public:
-	RemoteAccessWidgetToolBar( RemoteAccessWidget* parent, bool viewOnly );
+	RemoteAccessWidgetToolBar( RemoteAccessWidget* parent,
+							   bool startViewOnly, bool showViewOnlyToggleButton );
 	~RemoteAccessWidgetToolBar() override = default;
 
 	void appear();
@@ -82,7 +83,8 @@ class RemoteAccessWidget : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit RemoteAccessWidget( const ComputerControlInterface::Pointer& computerControlInterface, bool viewOnly = false );
+	explicit RemoteAccessWidget( const ComputerControlInterface::Pointer& computerControlInterface,
+								 bool startViewOnly, bool showViewOnlyToggleButton );
 	~RemoteAccessWidget() override;
 
 	VncViewWidget* vncView() const
@@ -94,15 +96,15 @@ public:
 	void toggleViewOnly( bool viewOnly );
 	void takeScreenshot();
 
-
 protected:
-	bool eventFilter( QObject* obj, QEvent* event ) override;
+	bool eventFilter( QObject* object, QEvent* event ) override;
 	void enterEvent( QEvent* event ) override;
 	void leaveEvent( QEvent* event ) override;
 	void resizeEvent( QResizeEvent* event ) override;
 
 private:
 	void updateSize();
+	void updateRemoteAccessTitle();
 
 	ComputerControlInterface::Pointer m_computerControlInterface;
 	VncViewWidget* m_vncView;

@@ -1,7 +1,7 @@
 /*
  * VncViewItem.cpp - QtQuick VNC view item
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -61,7 +61,7 @@ QSGNode* VncViewItem::updatePaintNode( QSGNode* oldNode, UpdatePaintNodeData* up
 {
 	Q_UNUSED(updatePaintNodeData)
 
-	QSGSimpleTextureNode *node = static_cast<QSGSimpleTextureNode *>(oldNode);
+	auto* node = static_cast<QSGSimpleTextureNode *>(oldNode);
 	if( !node )
 	{
 		node = new QSGSimpleTextureNode();
@@ -69,7 +69,17 @@ QSGNode* VncViewItem::updatePaintNode( QSGNode* oldNode, UpdatePaintNodeData* up
 		node->setTexture( texture );
 	}
 
-	dynamic_cast<QSGImageTexture *>( node->texture() )->setImage(m_computerControlInterface->screen() );
+	const auto texture = dynamic_cast<QSGImageTexture *>( node->texture() );
+
+	if( viewport().isValid() )
+	{
+		texture->setImage( m_computerControlInterface->screen().copy( viewport() ) );
+	}
+	else
+	{
+		texture->setImage( m_computerControlInterface->screen() );
+	}
+
 	node->setRect( boundingRect() );
 
 	return node;
@@ -86,7 +96,7 @@ void VncViewItem::setViewCursor( const QCursor& cursor )
 
 QSize VncViewItem::viewSize() const
 {
-	return QSize( int(width()), int(height()) );
+	return { int(width()), int(height()) };
 }
 
 

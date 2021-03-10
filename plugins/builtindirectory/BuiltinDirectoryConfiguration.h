@@ -1,7 +1,7 @@
 /*
  * BuiltinDirectoryConfiguration.h - configuration values for BuiltinDirectory plugin
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -32,5 +32,7 @@
 	OP( BuiltinDirectoryConfiguration, m_configuration, QJsonArray, networkObjects, setNetworkObjects, "NetworkObjects", "BuiltinDirectory", QJsonArray(), Configuration::Property::Flag::Standard )	\
 	/* legacy properties required for upgrade */ \
 	OP( BuiltinDirectoryConfiguration, m_configuration, QJsonArray, legacyLocalDataNetworkObjects, setLegacyLocalDataNetworkObjects, "NetworkObjects", "LocalData", QJsonArray(), Configuration::Property::Flag::Legacy )	\
+
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(BuiltinDirectoryConfiguration, FOREACH_BUILTIN_DIRECTORY_CONFIG_PROPERTY)

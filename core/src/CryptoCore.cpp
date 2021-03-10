@@ -1,7 +1,7 @@
 /*
  * CryptoCore.cpp - core functions for crypto features
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,9 +26,7 @@
 
 #include "CryptoCore.h"
 
-CryptoCore::CryptoCore() :
-	m_qcaInitializer(),
-	m_defaultPrivateKey()
+CryptoCore::CryptoCore()
 {
 	const auto features = QCA::supportedFeatures();
 
@@ -54,7 +52,7 @@ CryptoCore::~CryptoCore()
 
 QByteArray CryptoCore::generateChallenge()
 {
-	BIGNUM * challengeBigNum = BN_new();
+	const auto challengeBigNum = BN_new();
 
 	if( challengeBigNum == nullptr )
 	{
@@ -63,7 +61,7 @@ QByteArray CryptoCore::generateChallenge()
 	}
 
 	// generate a random challenge
-	BN_rand( challengeBigNum, ChallengeSize * 8, 0, 0 );
+	BN_rand( challengeBigNum, ChallengeSize * BitsPerByte, 0, 0 );
 	QByteArray chall( BN_num_bytes( challengeBigNum ), 0 );
 	BN_bn2bin( challengeBigNum, reinterpret_cast<unsigned char *>( chall.data() ) );
 	BN_free( challengeBigNum );

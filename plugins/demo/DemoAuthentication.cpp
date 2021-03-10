@@ -1,7 +1,7 @@
 /*
  * DemoAuthentication.cpp - implementation of DemoAuthentication class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,9 +26,8 @@
 #include "VariantArrayMessage.h"
 
 
-DemoAuthentication::DemoAuthentication( const Plugin::Uid& pluginUid ) :
-	m_accessToken(),
-	m_pluginUid( pluginUid )
+DemoAuthentication::DemoAuthentication( Plugin::Uid pluginUid ) :
+    m_pluginUid( pluginUid )
 {
 }
 
@@ -94,5 +93,5 @@ bool DemoAuthentication::authenticate( QIODevice* socket ) const
 	tokenAuthMessage.write( m_accessToken.toByteArray() );
 	tokenAuthMessage.send();
 
-	return false;
+	return true;
 }

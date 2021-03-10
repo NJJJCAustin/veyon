@@ -1,7 +1,7 @@
 /*
  * LdapClient.cpp - class representing the LDAP directory and providing access to directory entries
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -414,7 +414,8 @@ QString LdapClient::stripBaseDn( const QString& dn, const QString& baseDn )
 		// cut off comma and base DN
 		return dn.left( dn.length() - baseDn.length() - 1 );
 	}
-	else if( fullDnLower == baseDnLower )
+
+	if( fullDnLower == baseDnLower )
 	{
 		return {};
 	}
@@ -541,6 +542,13 @@ bool LdapClient::reconnect()
 	m_state = Disconnected;
 
 	m_connection->setServer( *m_server );
+
+	if( qEnvironmentVariableIsSet( "VEYON_DEBUG_LDAP_LIBRARY") )
+	{
+		const auto debugLevel = LdapLibraryDebugAny;
+		ldap_set_option( nullptr, LDAP_OPT_DEBUG_LEVEL, &debugLevel );
+		ber_set_option( nullptr, LDAP_OPT_DEBUG_LEVEL, &debugLevel );
+	}
 
 	if( m_connection->connect() != 0 )
 	{

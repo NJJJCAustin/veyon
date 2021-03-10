@@ -1,7 +1,7 @@
 /*
  * RemoteAccessFeaturePlugin.h - declaration of RemoteAccessFeaturePlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -25,16 +25,22 @@
 #pragma once
 
 #include "Computer.h"
-#include "SimpleFeatureProvider.h"
+#include "FeatureProviderInterface.h"
 #include "CommandLinePluginInterface.h"
 
 
-class RemoteAccessFeaturePlugin : public QObject, CommandLinePluginInterface, SimpleFeatureProvider, PluginInterface
+class RemoteAccessFeaturePlugin : public QObject, CommandLinePluginInterface, FeatureProviderInterface, PluginInterface
 {
 	Q_OBJECT
 	Q_PLUGIN_METADATA(IID "io.veyon.Veyon.Plugins.RemoteAccess")
 	Q_INTERFACES(PluginInterface FeatureProviderInterface CommandLinePluginInterface)
 public:
+	enum class Argument
+	{
+		HostName
+	};
+	Q_ENUM(Argument)
+
 	explicit RemoteAccessFeaturePlugin( QObject* parent = nullptr );
 	~RemoteAccessFeaturePlugin() override = default;
 
@@ -70,6 +76,9 @@ public:
 
 	const FeatureList& featureList() const override;
 
+	bool controlFeature( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
+						const ComputerControlInterfaceList& computerControlInterfaces ) override;
+
 	bool startFeature( VeyonMasterInterface& master, const Feature& feature,
 					   const ComputerControlInterfaceList& computerControlInterfaces ) override;
 
@@ -87,12 +96,14 @@ public:
 
 	QString commandHelp( const QString& command ) const override;
 
-private slots:
+private Q_SLOTS:
 	CommandLinePluginInterface::RunResult handle_view( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_control( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_help( const QStringList& arguments );
 
 private:
+	bool remoteViewEnabled() const;
+	bool remoteControlEnabled() const;
 	bool initAuthentication();
 	bool remoteAccess( const QString& hostAddress, bool viewOnly );
 

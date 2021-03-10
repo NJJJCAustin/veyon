@@ -1,7 +1,7 @@
 /*
  * AuthenticationManager.cpp - implementation of AuthenticationManager
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -27,9 +27,7 @@
 #include "VeyonConfiguration.h"
 
 AuthenticationManager::AuthenticationManager( QObject* parent ) :
-	QObject( parent ),
-	m_configuredPlugin( nullptr ),
-	m_dummyAuthentication()
+	QObject( parent )
 {
 	for( auto pluginObject : qAsConst( VeyonCore::pluginManager().pluginObjects() ) )
 	{
@@ -46,19 +44,31 @@ AuthenticationManager::AuthenticationManager( QObject* parent ) :
 	{
 		qFatal( "AuthenticationManager: no authentication plugins available!" );
 	}
-
-	reloadConfiguration();
 }
 
 
 
-AuthenticationManager::Types AuthenticationManager::availableTypes() const
+Plugin::Uid AuthenticationManager::toUid( AuthenticationPluginInterface* authPlugin ) const
 {
-	Types types;
-
 	for( auto it = m_plugins.constBegin(), end = m_plugins.constEnd(); it != end; ++it )
 	{
-		types[it.key()] = it.value()->authenticationTypeName();
+		if( it.value() == authPlugin )
+		{
+			return it.key();
+		}
+	}
+
+	return {};
+}
+
+
+
+AuthenticationManager::Types AuthenticationManager::availableMethods() const
+{
+	Types types;
+	for( auto it = m_plugins.constBegin(), end = m_plugins.constEnd(); it != end; ++it )
+	{
+		types[it.key()] = it.value()->authenticationMethodName();
 	}
 
 	return types;
@@ -66,12 +76,75 @@ AuthenticationManager::Types AuthenticationManager::availableTypes() const
 
 
 
-void AuthenticationManager::reloadConfiguration()
+void AuthenticationManager::setEnabled( Plugin::Uid uid, bool enabled )
 {
-	m_configuredPlugin = m_plugins.value( VeyonCore::config().authenticationPlugin() );
+	const auto formattedUid = VeyonCore::formattedUuid(uid);
 
-	if( m_configuredPlugin == nullptr )
+	auto plugins = VeyonCore::config().enabledAuthenticationPlugins();
+
+	if( enabled )
 	{
-		m_configuredPlugin = &m_dummyAuthentication;
+		plugins.append( formattedUid );
+		plugins.removeDuplicates();
 	}
+	else
+	{
+		plugins.removeAll( formattedUid );
+	}
+
+	VeyonCore::config().setEnabledAuthenticationPlugins( plugins );
+}
+
+
+
+bool AuthenticationManager::isEnabled( Plugin::Uid uid ) const
+{
+	return VeyonCore::config().enabledAuthenticationPlugins().contains( VeyonCore::formattedUuid(uid) );
+}
+
+
+
+void AuthenticationManager::setEnabled( AuthenticationPluginInterface* authPlugin, bool enabled )
+{
+	for( auto it = m_plugins.constBegin(), end = m_plugins.constEnd(); it != end; ++it )
+	{
+		if( it.value() == authPlugin )
+		{
+			setEnabled( it.key(), enabled );
+		}
+	}
+}
+
+
+
+bool AuthenticationManager::isEnabled( AuthenticationPluginInterface* authPlugin ) const
+{
+	for( auto it = m_plugins.constBegin(), end = m_plugins.constEnd(); it != end; ++it )
+	{
+		if( it.value() == authPlugin && isEnabled( it.key() ) )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+
+bool AuthenticationManager::initializeCredentials()
+{
+	for( auto it = m_plugins.constBegin(), end = m_plugins.constEnd(); it != end; ++it )
+	{
+		if( isEnabled( it.key() ) )
+		{
+			if( it.value()->initializeCredentials() )
+			{
+				m_initializedPlugin = it.value();
+				return true;
+			}
+		}
+	}
+
+	return false;
 }

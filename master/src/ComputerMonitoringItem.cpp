@@ -1,7 +1,7 @@
 /*
  * ComputerMonitoringItem.cpp - provides a view with computer monitor thumbnails
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -56,20 +56,14 @@ ComputerControlInterfaceList ComputerMonitoringItem::selectedComputerControlInte
 
 void ComputerMonitoringItem::componentComplete()
 {
-	initializeView();
+	initializeView( this );
 
-	if( VeyonCore::config().autoAdjustGridSize() )
+	if( VeyonCore::config().autoAdjustMonitoringIconSize() )
 	{
-		autoAdjustComputerScreenSize();
+		initiateIconSizeAutoAdjust();
 	}
 
 	QQuickItem::componentComplete();
-}
-
-
-
-void ComputerMonitoringItem::autoAdjustComputerScreenSize()
-{
 }
 
 
@@ -95,7 +89,7 @@ void ComputerMonitoringItem::runFeature( QString uid )
 
 QObject* ComputerMonitoringItem::model() const
 {
-	return listModel();
+	return dataModel();
 }
 
 
@@ -126,8 +120,8 @@ void ComputerMonitoringItem::setColors( const QColor& backgroundColor, const QCo
 	m_backgroundColor = backgroundColor;
 	m_textColor = textColor;
 
-	emit backgroundColorChanged();
-	emit textColorChanged();
+	Q_EMIT backgroundColorChanged();
+	Q_EMIT textColorChanged();
 }
 
 
@@ -158,7 +152,7 @@ void ComputerMonitoringItem::setIconSize( const QSize& size )
 	{
 		m_iconSize = size;
 
-		emit iconSizeChanged();
+		Q_EMIT iconSizeChanged();
 	}
 }
 
@@ -166,7 +160,9 @@ void ComputerMonitoringItem::setIconSize( const QSize& size )
 
 QVariantList ComputerMonitoringItem::selectedObjects() const
 {
-	QVariantList objects;
+	QVariantList objects; // clazy:exclude=inefficient-qlist
+	objects.reserve(m_selectedObjects.size());
+
 	for( const auto& object : qAsConst(m_selectedObjects) )
 	{
 		objects.append( object );

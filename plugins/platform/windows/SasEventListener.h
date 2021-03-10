@@ -1,7 +1,7 @@
 /*
  * SasEventListener.h - header file for SasEventListener class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -32,6 +32,7 @@
 
 class SasEventListener : public QThread
 {
+	Q_OBJECT
 public:
 	using SendSas = void (WINAPI *)(BOOL asUser);
 

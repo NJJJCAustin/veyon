@@ -1,7 +1,7 @@
 /*
  * PowerControlFeaturePlugin.cpp - implementation of PowerControlFeaturePlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -116,43 +116,69 @@ const FeatureList &PowerControlFeaturePlugin::featureList() const
 
 
 
-bool PowerControlFeaturePlugin::startFeature( VeyonMasterInterface& master, const Feature& feature,
-											  const ComputerControlInterfaceList& computerControlInterfaces )
+bool PowerControlFeaturePlugin::controlFeature( Feature::Uid featureUid,
+											   Operation operation,
+											   const QVariantMap& arguments,
+											   const ComputerControlInterfaceList& computerControlInterfaces )
 {
-	if( m_features.contains( feature ) == false )
+	if( hasFeature( featureUid ) == false || operation != Operation::Start )
 	{
 		return false;
 	}
 
-	if( feature == m_powerOnFeature )
+	if( featureUid == m_powerOnFeature.uid() )
 	{
 		for( const auto& controlInterface : computerControlInterfaces )
 		{
 			broadcastWOLPacket( controlInterface->computer().macAddress() );
 		}
 	}
-	else if( feature == m_powerDownDelayedFeature )
+	else if( featureUid == m_powerDownDelayedFeature.uid() )
+	{
+		const auto shutdownTimeout = arguments.value( argToString(Argument::ShutdownTimeout), 60 ).toInt();
+
+		sendFeatureMessage( FeatureMessage{ featureUid, FeatureMessage::DefaultCommand }
+								.addArgument( Argument::ShutdownTimeout, shutdownTimeout ),
+							computerControlInterfaces );
+	}
+	else
+	{
+		sendFeatureMessage( FeatureMessage{ featureUid, FeatureMessage::DefaultCommand }, computerControlInterfaces );
+	}
+
+	return true;
+}
+
+
+
+bool PowerControlFeaturePlugin::startFeature( VeyonMasterInterface& master, const Feature& feature,
+											  const ComputerControlInterfaceList& computerControlInterfaces )
+{
+	if( feature == m_powerOnFeature )
+	{
+		return controlFeature( feature.uid(), Operation::Start, {}, computerControlInterfaces );
+	}
+
+	if( feature == m_powerDownDelayedFeature )
 	{
 		PowerDownTimeInputDialog dialog( master.mainWindow() );
 
 		if( dialog.exec() )
 		{
-			sendFeatureMessage( FeatureMessage( feature.uid(), FeatureMessage::DefaultCommand ).
-								addArgument( ShutdownTimeout, dialog.seconds() ),
-								computerControlInterfaces );
+			return controlFeature( feature.uid(), Operation::Start,
+								   { { argToString(Argument::ShutdownTimeout), dialog.seconds() } },
+								   computerControlInterfaces );
 		}
+
+		return true;
 	}
-	else
+
+	if( confirmFeatureExecution( feature, master.mainWindow() ) == false )
 	{
-		if( confirmFeatureExecution( feature, master.mainWindow() ) == false )
-		{
-			return false;
-		}
-
-		sendFeatureMessage( FeatureMessage( feature.uid(), FeatureMessage::DefaultCommand ), computerControlInterfaces );
+		return false;
 	}
 
-	return true;
+	return controlFeature( feature.uid(), Operation::Start, {}, computerControlInterfaces );
 }
 
 
@@ -180,14 +206,12 @@ bool PowerControlFeaturePlugin::handleFeatureMessage( VeyonServerInterface& serv
 		}
 		else
 		{
-			featureWorkerManager.startWorker( m_powerDownConfirmedFeature, FeatureWorkerManager::ManagedSystemProcess );
-			featureWorkerManager.sendMessage( message );
+			featureWorkerManager.sendMessageToManagedSystemWorker( message );
 		}
 	}
 	else if( message.featureUid() == m_powerDownDelayedFeature.uid() )
 	{
-		featureWorkerManager.startWorker( m_powerDownDelayedFeature, FeatureWorkerManager::ManagedSystemProcess );
-		featureWorkerManager.sendMessage( message );
+		featureWorkerManager.sendMessageToManagedSystemWorker( message );
 	}
 	else if( message.featureUid() == m_rebootFeature.uid() )
 	{
@@ -212,9 +236,10 @@ bool PowerControlFeaturePlugin::handleFeatureMessage( VeyonWorkerInterface& work
 		confirmShutdown();
 		return true;
 	}
-	else if( message.featureUid() == m_powerDownDelayedFeature.uid() )
+
+	if( message.featureUid() == m_powerDownDelayedFeature.uid() )
 	{
-		displayShutdownTimeout( message.argument( ShutdownTimeout ).toInt() );
+		displayShutdownTimeout( message.argument( Argument::ShutdownTimeout ).toInt() );
 		return true;
 	}
 
@@ -250,7 +275,7 @@ CommandLinePluginInterface::RunResult PowerControlFeaturePlugin::handle_help( co
 
 CommandLinePluginInterface::RunResult PowerControlFeaturePlugin::handle_on( const QStringList& arguments )
 {
-	if( arguments.size() < 1 )
+	if( arguments.isEmpty() )
 	{
 		return NotEnoughArguments;
 	}
@@ -273,7 +298,8 @@ bool PowerControlFeaturePlugin::confirmFeatureExecution( const Feature& feature,
 									  tr( "Do you really want to reboot the selected computers?" ) ) ==
 				QMessageBox::Yes;
 	}
-	else if( feature == m_powerDownFeature ||
+
+	if( feature == m_powerDownFeature ||
 			 feature == m_powerDownNowFeature ||
 			 feature == m_installUpdatesAndPowerDownFeature ||
 			 feature == m_powerDownConfirmedFeature ||
@@ -291,8 +317,8 @@ bool PowerControlFeaturePlugin::confirmFeatureExecution( const Feature& feature,
 
 bool PowerControlFeaturePlugin::broadcastWOLPacket( QString macAddress )
 {
-	const int MAC_SIZE = 6;
-	unsigned int mac[MAC_SIZE];  // Flawfinder: ignore
+	static constexpr size_t MAC_SIZE = 6;
+	std::array<uint, MAC_SIZE> mac{};
 
 	if( macAddress.isEmpty() )
 	{
@@ -322,11 +348,11 @@ bool PowerControlFeaturePlugin::broadcastWOLPacket( QString macAddress )
 
 	QByteArray datagram( MAC_SIZE*17, static_cast<char>( 0xff ) );
 
-	for( int i = 1; i < 17; ++i )
+	for( size_t i = 1; i < 17; ++i )
 	{
-		for(int j = 0; j < MAC_SIZE; ++j )
+		for( size_t j = 0; j < MAC_SIZE; ++j )
 		{
-			datagram[i*MAC_SIZE+j] = static_cast<char>( mac[j] );
+			datagram[uint(i*MAC_SIZE+j)] = static_cast<char>( mac.at(j) );
 		}
 	}
 
@@ -358,7 +384,7 @@ void PowerControlFeaturePlugin::confirmShutdown()
 				   tr( "The computer was remotely requested to power down. Do you want to power down the computer now?" ),
 				   QMessageBox::Yes | QMessageBox::No );
 	m.show();
-	VeyonCore::platform().coreFunctions().raiseWindow( &m );
+	VeyonCore::platform().coreFunctions().raiseWindow( &m, true );
 
 	if( m.exec() == QMessageBox::Yes )
 	{
@@ -405,7 +431,7 @@ void PowerControlFeaturePlugin::displayShutdownTimeout( int shutdownTimeout )
 	updateDialog( &dialog, 0 );
 
 	dialog.show();
-	VeyonCore::platform().coreFunctions().raiseWindow( &dialog );
+	VeyonCore::platform().coreFunctions().raiseWindow( &dialog, true );
 
 	QTimer powerdownTimer;
 	powerdownTimer.start( 1000 );

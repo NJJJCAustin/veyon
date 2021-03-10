@@ -1,7 +1,7 @@
 /*
  * LdapClient.h - class implementing an LDAP client
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -121,9 +121,15 @@ public:
 
 	static QStringList toRDNs( const QString& dn );
 
+	static QString cn()
+	{
+		return QStringLiteral("cn");
+	}
+
 private:
 	static constexpr int LdapQueryTimeout = 3000;
 	static constexpr int LdapConnectionTimeout = 60*1000;
+	static constexpr auto LdapLibraryDebugAny = -1;
 
 	bool reconnect();
 	bool connectAndBind( const QUrl& url );

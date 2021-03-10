@@ -1,7 +1,7 @@
 /*
  * ServerAuthenticationManager.cpp - implementation of ServerAuthenticationManager
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -38,13 +38,16 @@ void ServerAuthenticationManager::processAuthenticationMessage( VncServerClient*
 																VariantArrayMessage& message )
 {
 	vDebug() << "state" << client->authState()
-			 << "plugin" << client->authPluginUid()
+			 << "plugin" << client->authMethodUid()
 			 << "host" << client->hostAddress()
 			 << "user" << client->username();
 
-	if( client->authPluginUid() == VeyonCore::config().authenticationPlugin()  )
+	auto authPlugin = VeyonCore::authenticationManager().plugins().value( client->authMethodUid() );
+
+	if( authPlugin &&
+		VeyonCore::authenticationManager().isEnabled( client->authMethodUid() ) )
 	{
-		client->setAuthState( VeyonCore::authenticationManager().configuredPlugin()->performAuthentication( client, message ) );
+		client->setAuthState( authPlugin->performAuthentication( client, message ) );
 	}
 	else
 	{
@@ -55,7 +58,7 @@ void ServerAuthenticationManager::processAuthenticationMessage( VncServerClient*
 	{
 	case VncServerClient::AuthState::Failed:
 	case VncServerClient::AuthState::Successful:
-		emit finished( client );
+		Q_EMIT finished( client );
 		break;
 	default:
 		break;

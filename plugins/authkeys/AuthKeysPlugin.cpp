@@ -1,7 +1,7 @@
 /*
  * AuthKeysPlugin.cpp - implementation of AuthKeysPlugin class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -27,7 +27,7 @@
 #include <QMessageBox>
 #include <QProcessEnvironment>
 
-#include "AuthKeysConfigurationDialog.h"
+#include "AuthKeysConfigurationWidget.h"
 #include "AuthKeysPlugin.h"
 #include "AuthKeysManager.h"
 #include "Filesystem.h"
@@ -39,7 +39,6 @@ AuthKeysPlugin::AuthKeysPlugin( QObject* parent ) :
 	QObject( parent ),
 	m_configuration( &VeyonCore::config() ),
 	m_manager( m_configuration ),
-	m_privateKey(),
 	m_commands( {
 { QStringLiteral("create"), tr( "Create new authentication key pair" ) },
 { QStringLiteral("delete"), tr( "Delete authentication key" ) },
@@ -61,6 +60,13 @@ void AuthKeysPlugin::upgrade(const QVersionNumber& oldVersion)
 		m_configuration.setPublicKeyBaseDir( m_configuration.legacyPublicKeyBaseDir() );
 		m_configuration.setPrivateKeyBaseDir( m_configuration.legacyPrivateKeyBaseDir() );
 	}
+}
+
+
+
+QWidget* AuthKeysPlugin::createAuthenticationConfigurationWidget()
+{
+	return new AuthKeysConfigurationWidget( m_configuration, m_manager );
 }
 
 
@@ -124,13 +130,6 @@ bool AuthKeysPlugin::checkCredentials() const
 	}
 
 	return true;
-}
-
-
-
-void AuthKeysPlugin::configureCredentials()
-{
-	AuthKeysConfigurationDialog( m_configuration, m_manager ).exec();
 }
 
 
@@ -335,7 +334,7 @@ CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_create( const QStri
 
 CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_delete( const QStringList& arguments )
 {
-	if( arguments.size() < 1 )
+	if( arguments.isEmpty() )
 	{
 		return NotEnoughArguments;
 	}
@@ -360,7 +359,7 @@ CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_delete( const QStri
 
 CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_export( const QStringList& arguments )
 {
-	if( arguments.size() < 1 )
+	if( arguments.isEmpty() )
 	{
 		return NotEnoughArguments;
 	}
@@ -376,7 +375,7 @@ CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_export( const QStri
 		outputFile = AuthKeysManager::exportedKeyFileName( name, type );
 	}
 
-	if( m_manager.exportKey( name, type, outputFile ) == false )
+	if( m_manager.exportKey( name, type, outputFile, arguments.contains( QLatin1String("-f") ) ) == false )
 	{
 		error( m_manager.resultMessage() );
 
@@ -392,7 +391,7 @@ CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_export( const QStri
 
 CommandLinePluginInterface::RunResult AuthKeysPlugin::handle_import( const QStringList& arguments )
 {
-	if( arguments.size() < 1 )
+	if( arguments.isEmpty() )
 	{
 		return NotEnoughArguments;
 	}

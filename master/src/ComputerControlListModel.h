@@ -1,7 +1,7 @@
 /*
  * ComputerControlListModel.h - data model for computer control objects
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -54,6 +54,11 @@ public:
 
 	void updateComputerScreenSize();
 
+	QSize computerScreenSize() const
+	{
+		return m_computerScreenSize;
+	}
+
 	const ComputerControlInterfaceList& computerControlInterfaces() const
 	{
 		return m_computerControlInterfaces;
@@ -64,24 +69,26 @@ public:
 
 	void reload();
 
-signals:
+Q_SIGNALS:
 	void activeFeaturesChanged( QModelIndex );
+	void computerScreenSizeChanged();
 
 private:
 	void update();
+
+	QModelIndex interfaceIndex( ComputerControlInterface* controlInterface ) const;
 
 	void updateState( const QModelIndex& index );
 	void updateScreen( const QModelIndex& index );
 	void updateActiveFeatures( const QModelIndex& index );
 	void updateUser( const QModelIndex& index );
 
-	void startComputerControlInterface( const ComputerControlInterface::Pointer& controlInterface, const QModelIndex& index );
+	void startComputerControlInterface( ComputerControlInterface* controlInterface );
 	void stopComputerControlInterface( const ComputerControlInterface::Pointer& controlInterface );
 
-	QSize computerScreenSize() const;
+	double averageAspectRatio() const;
 
-	void loadIcons();
-	QImage prepareIcon( const QImage& icon );
+	QImage scaleAndAlignIcon( const QImage& icon, QSize size ) const;
 	QImage computerDecorationRole( const ComputerControlInterface::Pointer& controlInterface ) const;
 	QString computerToolTipRole( const ComputerControlInterface::Pointer& controlInterface ) const;
 	QString computerDisplayRole( const ComputerControlInterface::Pointer& controlInterface ) const;
@@ -95,8 +102,10 @@ private:
 	QString m_imageProviderId{ QStringLiteral("computers") };
 	QImage m_iconDefault;
 	QImage m_iconConnectionProblem;
-	QImage m_iconDemoMode;
+	QImage m_iconServerNotRunning;
 
-	ComputerControlInterfaceList m_computerControlInterfaces;
+	QSize m_computerScreenSize{};
+
+	ComputerControlInterfaceList m_computerControlInterfaces{};
 
 };

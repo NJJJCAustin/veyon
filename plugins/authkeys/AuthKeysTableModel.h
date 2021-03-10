@@ -1,7 +1,7 @@
 /*
  * AuthKeysTableModel.h - declaration of AuthKeysTableModel class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -57,6 +57,6 @@ public:
 
 private:
 	AuthKeysManager& m_manager;
-	QStringList m_keys;
+	QStringList m_keys{};
 
 };

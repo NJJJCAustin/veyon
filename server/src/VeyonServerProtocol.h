@@ -1,7 +1,7 @@
 /*
  * VeyonServerProtocol.h - header file for the VeyonServerProtocol class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -40,7 +40,7 @@ public:
 						  ServerAccessControlManager& serverAccessControlManager );
 
 protected:
-	AuthPluginUids supportedAuthPluginUids() const override;
+	AuthMethodUids supportedAuthMethodUids() const override;
 	void processAuthenticationMessage( VariantArrayMessage& message ) override;
 	void performAccessControl() override;
 

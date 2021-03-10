@@ -1,7 +1,7 @@
 /*
  * LinuxPlatformConfiguration.h - configuration values for LinuxPlatform plugin
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -28,7 +28,8 @@
 
 #define FOREACH_LINUX_PLATFORM_CONFIG_PROPERTY(OP) \
 	OP( LinuxPlatformConfiguration, m_configuration, QString, pamServiceName, setPamServiceName, "PamServiceName", "Linux", QString(), Configuration::Property::Flag::Advanced ) \
-	OP( LinuxPlatformConfiguration, m_configuration, QString, displayManagerUsers, setDisplayManagerUsers, "DisplayManagerUsers", "Linux", QStringLiteral("gdm,lightdm,sddm,mdm"), Configuration::Property::Flag::Advanced ) \
+	OP( LinuxPlatformConfiguration, m_configuration, QString, displayManagerUsers, setDisplayManagerUsers, "DisplayManagerUsers", "Linux", QStringLiteral("gdm,lightdm,sddm,mdm,Debian-gdm"), Configuration::Property::Flag::Advanced ) \
 
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(LinuxPlatformConfiguration, FOREACH_LINUX_PLATFORM_CONFIG_PROPERTY)

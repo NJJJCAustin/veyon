@@ -1,7 +1,7 @@
 /*
  * LocationDialog.h - header file for LocationDialog
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -43,7 +43,7 @@ public:
 		return m_selectedLocation;
 	}
 
-private slots:
+private Q_SLOTS:
 	void updateSearchFilter();
 	void updateSelection( const QModelIndex& current, const QModelIndex& previous );
 

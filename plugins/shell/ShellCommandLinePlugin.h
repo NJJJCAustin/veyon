@@ -1,7 +1,7 @@
 /*
  * ShellCommandLinePlugin.h - declaration of ShellCommandLinePlugin class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -78,7 +78,7 @@ public:
 	QStringList commands() const override;
 	QString commandHelp( const QString& command ) const override;
 
-public slots:
+public Q_SLOTS:
 	CommandLinePluginInterface::RunResult handle_main();
 	CommandLinePluginInterface::RunResult handle_run( const QStringList& arguments );
 

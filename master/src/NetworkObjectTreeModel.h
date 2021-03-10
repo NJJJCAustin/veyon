@@ -1,7 +1,7 @@
 /*
  * NetworkObjectTreeModel.h - data model returning hierarchically grouped network objects
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -49,6 +49,7 @@ public:
 	bool canFetchMore( const QModelIndex& parent ) const override;
 	void fetchMore( const QModelIndex& parent ) override;
 
+	Qt::ItemFlags flags( const QModelIndex& index ) const override;
 
 private:
 	void beginInsertObjects( const NetworkObject& parent, int index, int count );

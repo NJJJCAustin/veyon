@@ -1,7 +1,7 @@
 /*
  * NetworkObjectDirectoryManager.cpp - implementation of NetworkObjectDirectoryManager
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -29,9 +29,7 @@
 
 
 NetworkObjectDirectoryManager::NetworkObjectDirectoryManager( QObject* parent ) :
-	QObject( parent ),
-	m_directoryPluginInterfaces(),
-	m_configuredDirectory( nullptr )
+	QObject( parent )
 {
 	for( auto pluginObject : qAsConst( VeyonCore::pluginManager().pluginObjects() ) )
 	{
@@ -65,7 +63,7 @@ NetworkObjectDirectory* NetworkObjectDirectoryManager::configuredDirectory()
 {
 	if( m_configuredDirectory == nullptr )
 	{
-		m_configuredDirectory = createDirectory();
+		m_configuredDirectory = createDirectory( VeyonCore::config().networkObjectDirectoryPlugin(), this );
 	}
 
 	return m_configuredDirectory;
@@ -73,15 +71,13 @@ NetworkObjectDirectory* NetworkObjectDirectoryManager::configuredDirectory()
 
 
 
-NetworkObjectDirectory* NetworkObjectDirectoryManager::createDirectory()
+NetworkObjectDirectory* NetworkObjectDirectoryManager::createDirectory( Plugin::Uid uid, QObject* parent )
 {
-	const auto configuredPluginUuid = VeyonCore::config().networkObjectDirectoryPlugin();
-
 	for( auto it = m_directoryPluginInterfaces.constBegin(), end = m_directoryPluginInterfaces.constEnd(); it != end; ++it )
 	{
-		if( it.key()->uid() == configuredPluginUuid )
+		if( it.key()->uid() == uid )
 		{
-			auto directory = it.value()->createNetworkObjectDirectory( this );
+			auto directory = it.value()->createNetworkObjectDirectory( parent );
 			if( directory )
 			{
 				return directory;
@@ -93,7 +89,7 @@ NetworkObjectDirectory* NetworkObjectDirectoryManager::createDirectory()
 	{
 		if( it.key()->flags().testFlag( Plugin::ProvidesDefaultImplementation ) )
 		{
-			auto defaultDirectory = it.value()->createNetworkObjectDirectory( this );
+			auto defaultDirectory = it.value()->createNetworkObjectDirectory( parent );
 			if( defaultDirectory )
 			{
 				return defaultDirectory;
@@ -101,6 +97,6 @@ NetworkObjectDirectory* NetworkObjectDirectoryManager::createDirectory()
 		}
 	}
 
-	vCritical() << "no default plugin available! configured plugin:" << configuredPluginUuid;
+	vCritical() << "no default plugin available! requested plugin:" << uid;
 	return nullptr;
 }

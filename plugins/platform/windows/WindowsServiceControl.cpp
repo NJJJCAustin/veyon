@@ -1,7 +1,7 @@
 /*
  * WindowsServiceControl.h - class for managing a Windows service
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -158,19 +158,21 @@ bool WindowsServiceControl::stop()
 
 bool WindowsServiceControl::install( const QString& filePath, const QString& displayName  )
 {
+	const auto binaryPath = QStringLiteral("\"%1\"").arg( QString( filePath ).replace( QLatin1Char('"'), QString() ) );
+
 	m_serviceHandle = CreateService(
 				m_serviceManager,		// SCManager database
 				WindowsCoreFunctions::toConstWCharArray( m_name ),	// name of service
 				WindowsCoreFunctions::toConstWCharArray( displayName ),// name to display
 				SERVICE_ALL_ACCESS,	// desired access
-				SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
+				SERVICE_WIN32_OWN_PROCESS,
 				// service type
 				SERVICE_AUTO_START,	// start type
 				SERVICE_ERROR_NORMAL,	// error control type
-				WindowsCoreFunctions::toConstWCharArray( filePath ),		// service's binary
+				WindowsCoreFunctions::toConstWCharArray( binaryPath ),		// service's binary
 				nullptr,			// no load ordering group
 				nullptr,			// no tag identifier
-				nullptr,			// dependencies
+				L"Tcpip\0RpcSs\0\0",		// dependencies
 				nullptr,			// LocalSystem account
 				nullptr );			// no password
 

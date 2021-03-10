@@ -1,7 +1,7 @@
 /*
  * main.cpp - main file for Veyon Service
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -32,10 +32,12 @@ int main( int argc, char** argv )
 	QCoreApplication app( argc, argv );
 	VeyonCore core( &app, VeyonCore::Component::Service, QStringLiteral("Service") );
 
-	auto& serviceFunctions = core.platform().serviceFunctions();
+	auto& serviceFunctions = VeyonCore::platform().serviceFunctions();
 
-	if( serviceFunctions.runAsService( VeyonServiceControl::name(),
-									   [&]() { serviceFunctions.manageServerInstances(); } ) )
+	if( serviceFunctions.runAsService( VeyonServiceControl::name(), [&]() {
+			Q_EMIT core.applicationLoaded();
+			serviceFunctions.manageServerInstances();
+		} ) )
 	{
 		return 0;
 	}

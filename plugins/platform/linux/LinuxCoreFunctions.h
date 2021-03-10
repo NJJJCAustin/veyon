@@ -1,7 +1,7 @@
 /*
  * LinuxCoreFunctions.h - declaration of LinuxCoreFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -25,15 +25,18 @@
 #pragma once
 
 #include <QDBusInterface>
+#include <QSharedPointer>
 
 #include "PlatformCoreFunctions.h"
+
+struct proc_t;
 
 // clazy:excludeall=copyable-polymorphic
 
 class LinuxCoreFunctions : public PlatformCoreFunctions
 {
 public:
-	LinuxCoreFunctions();
+	LinuxCoreFunctions() = default;
 
 	bool applyConfiguration() override;
 
@@ -43,7 +46,7 @@ public:
 	void reboot() override;
 	void powerDown( bool installUpdates ) override;
 
-	void raiseWindow( QWidget* widget ) override;
+	void raiseWindow( QWidget* widget, bool stayOnTop ) override;
 
 	void disableScreenSaver() override;
 	void restoreScreenSaverSettings() override;
@@ -74,12 +77,15 @@ public:
 
 	static void restartDisplayManagers();
 
+	static void forEachChildProcess( const std::function<bool(proc_t *)>& visitor,
+							 int parentPid, int flags, bool visitParent );
+
 private:
-	int m_screenSaverTimeout;
-	int m_screenSaverPreferBlanking;
-	bool m_dpmsEnabled;
-	unsigned short m_dpmsStandbyTimeout;
-	unsigned short m_dpmsSuspendTimeout;
-	unsigned short m_dpmsOffTimeout;
+	int m_screenSaverTimeout{0};
+	int m_screenSaverPreferBlanking{0};
+	bool m_dpmsEnabled{false};
+	unsigned short m_dpmsStandbyTimeout{0};
+	unsigned short m_dpmsSuspendTimeout{0};
+	unsigned short m_dpmsOffTimeout{0};
 
 };

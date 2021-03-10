@@ -1,7 +1,7 @@
 /*
  * BuiltinDirectory.cpp - NetworkObjects from VeyonConfiguration
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -44,6 +44,7 @@ void BuiltinDirectory::update()
 	const auto networkObjects = m_configuration.networkObjects();
 
 	NetworkObjectUidList groupUids;
+	NetworkObject rootObject{ NetworkObject::Type::Root };
 
 	for( const auto& networkObjectValue : networkObjects )
 	{
@@ -53,13 +54,13 @@ void BuiltinDirectory::update()
 		{
 			groupUids.append( networkObject.uid() ); // clazy:exclude=reserve-candidates
 
-			addOrUpdateObject( networkObject, NetworkObject( NetworkObject::Type::Root ) );
+			addOrUpdateObject( networkObject, rootObject );
 
 			updateLocation( networkObject, networkObjects );
 		}
 	}
 
-	removeObjects( NetworkObject( NetworkObject::Type::Root ), [groupUids]( const NetworkObject& object ) {
+	removeObjects( rootObject, [groupUids]( const NetworkObject& object ) {
 		return object.type() == NetworkObject::Type::Location && groupUids.contains( object.uid() ) == false; } );
 }
 

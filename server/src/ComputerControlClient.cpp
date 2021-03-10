@@ -1,7 +1,7 @@
 /*
  * ComputerControlClient.cpp - implementation of the ComputerControlClient class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -36,15 +36,12 @@ ComputerControlClient::ComputerControlClient( ComputerControlServer* server,
 											  QObject* parent ) :
 	VncProxyConnection( clientSocket, vncServerPort, parent ),
 	m_server( server ),
-	m_serverClient(),
 	m_serverProtocol( clientSocket,
 					  &m_serverClient,
 					  server->authenticationManager(),
 					  server->accessControlManager() ),
 	m_clientProtocol( vncServerSocket(), vncServerPassword )
 {
-	m_serverProtocol.start();
-	m_clientProtocol.start();
 }
 
 

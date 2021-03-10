@@ -1,7 +1,7 @@
 /*
  * VncView.cpp - abstract base for all VNC views
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -22,9 +22,8 @@
  *
  */
 
-#define XK_KOREAN
-#include "rfb/keysym.h"
-#include "rfb/rfbproto.h"
+#include <rfb/keysym.h>
+#include <rfb/rfbproto.h>
 
 #include <QCursor>
 #include <QHoverEvent>
@@ -39,12 +38,7 @@
 
 VncView::VncView( VncConnection* connection ) :
 	m_connection( connection ),
-	m_cursorShape(),
-	m_cursorPos(),
-	m_cursorHot(),
 	m_framebufferSize( connection->image().size() ),
-	m_viewOnly( true ),
-	m_buttonMask( 0 ),
 	m_keyboardShortcutTrapper( VeyonCore::platform().inputDeviceFunctions().createKeyboardShortcutTrapper( nullptr ) )
 {
 	// handle/forward trapped keyboard shortcuts
@@ -67,10 +61,24 @@ QSize VncView::scaledSize() const
 {
 	if( isScaledView() == false )
 	{
-		return m_framebufferSize;
+		return effectiveFramebufferSize();
 	}
 
-	return m_framebufferSize.scaled( viewSize(), Qt::KeepAspectRatio );
+	return effectiveFramebufferSize().scaled( viewSize(), Qt::KeepAspectRatio );
+}
+
+
+
+QSize VncView::effectiveFramebufferSize() const
+{
+	const auto viewportSize = m_viewport.size();
+
+	if( viewportSize.isEmpty() == false )
+	{
+		return viewportSize;
+	}
+
+	return m_framebufferSize;
 }
 
 
@@ -167,8 +175,8 @@ void VncView::sendShortcut( VncView::Shortcut shortcut )
 
 bool VncView::isScaledView() const
 {
-	return viewSize().width() < m_framebufferSize.width() ||
-		   viewSize().height() < m_framebufferSize.height();
+	return viewSize().width() < effectiveFramebufferSize().width() ||
+		   viewSize().height() < effectiveFramebufferSize().height();
 }
 
 
@@ -177,7 +185,7 @@ qreal VncView::scaleFactor() const
 {
 	if( isScaledView() )
 	{
-		return qreal( scaledSize().width() ) / m_framebufferSize.width();
+		return qreal( scaledSize().width() ) / effectiveFramebufferSize().width();
 	}
 
 	return 1;
@@ -187,26 +195,28 @@ qreal VncView::scaleFactor() const
 
 QPoint VncView::mapToFramebuffer( QPoint pos )
 {
-	if( m_framebufferSize.isEmpty() )
+	if( effectiveFramebufferSize().isEmpty() )
 	{
 		return { 0, 0 };
 	}
 
-	return { pos.x() * m_framebufferSize.width() / scaledSize().width(),
-			pos.y() * m_framebufferSize.height() / scaledSize().height() };
+	return { pos.x() * effectiveFramebufferSize().width() / scaledSize().width() + viewport().x(),
+			 pos.y() * effectiveFramebufferSize().height() / scaledSize().height() + viewport().y() };
 }
 
 
 
 QRect VncView::mapFromFramebuffer( QRect r )
 {
-	if( m_framebufferSize.isEmpty() )
+	if( effectiveFramebufferSize().isEmpty() )
 	{
 		return {};
 	}
 
-	const auto dx = scaledSize().width() / qreal( m_framebufferSize.width() );
-	const auto dy = scaledSize().height() / qreal( m_framebufferSize.height() );
+	r.translate( -viewport().x(), -viewport().y() );
+
+	const auto dx = scaledSize().width() / qreal( effectiveFramebufferSize().width() );
+	const auto dy = scaledSize().height() / qreal( effectiveFramebufferSize().height() );
 
 	return { int(r.x()*dx), int(r.y()*dy),
 			int(r.width()*dx), int(r.height()*dy) };
@@ -260,8 +270,10 @@ void VncView::updateFramebufferSize( int w, int h )
 
 void VncView::updateImage( int x, int y, int w, int h )
 {
-	const auto scale = scaleFactor();
+	x -= viewport().x();
+	y -= viewport().y();
 
+	const auto scale = scaleFactor();
 	updateView( qMax( 0, qFloor( x*scale - 1 ) ), qMax( 0, qFloor( y*scale - 1 ) ),
 				qCeil( w*scale + 2 ), qCeil( h*scale + 2 ) );
 }
@@ -552,11 +564,11 @@ void VncView::mouseEventHandler( QMouseEvent* event )
 		int rfb;
 	};
 
-	const ButtonTranslation buttonTranslationMap[] = {
+	static constexpr std::array<ButtonTranslation, 3> buttonTranslationMap{ {
 		{ Qt::LeftButton, rfbButton1Mask },
 		{ Qt::MidButton, rfbButton2Mask },
 		{ Qt::RightButton, rfbButton3Mask }
-	} ;
+	} };
 
 	if( event->type() != QEvent::MouseMove )
 	{
@@ -567,11 +579,11 @@ void VncView::mouseEventHandler( QMouseEvent* event )
 				if( event->type() == QEvent::MouseButtonPress ||
 					event->type() == QEvent::MouseButtonDblClick )
 				{
-					m_buttonMask |= i.rfb;
+					m_buttonMask |= uint(i.rfb);
 				}
 				else
 				{
-					m_buttonMask &= ~i.rfb;
+					m_buttonMask &= ~uint(i.rfb);
 				}
 			}
 		}
@@ -590,8 +602,14 @@ void VncView::wheelEventHandler( QWheelEvent* event )
 		return;
 	}
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+	const auto p = mapToFramebuffer( event->position().toPoint() );
+	const uint scrollButtonMask = ( event->angleDelta().y() < 0 ) ? rfbButton5Mask : rfbButton4Mask;
+#else
 	const auto p = mapToFramebuffer( event->pos() );
-	m_connection->mouseEvent( p.x(), p.y(), m_buttonMask | ( ( event->delta() < 0 ) ? rfbButton5Mask : rfbButton4Mask ) );
+	const uint scrollButtonMask = ( event->delta() < 0 ) ? rfbButton5Mask : rfbButton4Mask;
+#endif
+	m_connection->mouseEvent( p.x(), p.y(), m_buttonMask | scrollButtonMask );
 	m_connection->mouseEvent( p.x(), p.y(), m_buttonMask );
 }
 

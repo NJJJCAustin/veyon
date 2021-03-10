@@ -2,7 +2,7 @@
  * VncServer.cpp - implementation of VncServer, a VNC-server-
  *                      abstraction for platform independent VNC-server-usage
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -28,6 +28,7 @@
 #include "AuthenticationCredentials.h"
 #include "CryptoCore.h"
 #include "VeyonConfiguration.h"
+#include "PlatformSessionFunctions.h"
 #include "PluginManager.h"
 #include "VncServer.h"
 #include "VncServerPluginInterface.h"
@@ -37,6 +38,8 @@ VncServer::VncServer( QObject* parent ) :
 	QThread( parent ),
 	m_pluginInterface( nullptr )
 {
+	const auto currentSessionType = VeyonCore::platform().sessionFunctions().currentSessionType();
+
 	VeyonCore::authenticationCredentials().setInternalVncServerPassword(
 				CryptoCore::generateChallenge().toBase64().left( MAXPWLEN ) );
 
@@ -49,6 +52,14 @@ VncServer::VncServer( QObject* parent ) :
 
 		if( pluginInterface && vncServerPluginInterface )
 		{
+			// skip VNC server plugins which support certain session types only and do not support
+			// the current session type
+			if( vncServerPluginInterface->supportedSessionTypes().isEmpty() == false &&
+				vncServerPluginInterface->supportedSessionTypes().contains( currentSessionType, Qt::CaseInsensitive ) == false )
+			{
+				continue;
+			}
+
 			if( pluginInterface->uid() == VeyonCore::config().vncServerPlugin() )
 			{
 				m_pluginInterface = vncServerPluginInterface;
@@ -94,14 +105,22 @@ void VncServer::prepare()
 
 
 
-int VncServer::serverPort() const
+int VncServer::serverBasePort() const
 {
+
 	if( m_pluginInterface && m_pluginInterface->configuredServerPort() > 0 )
 	{
-		return m_pluginInterface->configuredServerPort() + VeyonCore::sessionId();
+		return m_pluginInterface->configuredServerPort();
 	}
 
-	return VeyonCore::config().vncServerPort() + VeyonCore::sessionId();
+	return VeyonCore::config().vncServerPort();
+}
+
+
+
+int VncServer::serverPort() const
+{
+	return serverBasePort() + VeyonCore::sessionId();
 }
 
 
@@ -134,7 +153,10 @@ void VncServer::run()
 			VeyonCore::authenticationCredentials().setInternalVncServerPassword( m_pluginInterface->configuredPassword() );
 		}
 
-		m_pluginInterface->runServer( serverPort(), password() );
+		if( m_pluginInterface->runServer( serverPort(), password() ) == false )
+		{
+			vCritical() << "An error occurred while running the VNC server plugin";
+		}
 
 		vDebug() << "finished";
 	}

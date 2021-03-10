@@ -1,7 +1,7 @@
 /*
  * ToolButton.cpp - implementation of Veyon-tool-button
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -45,10 +45,7 @@ ToolButton::ToolButton( const QIcon& icon,
 						const QString& altLabel,
 						const QString& description,
 						const QKeySequence& shortcut ) :
-	m_pixelRatio( 1 ),
 	m_icon( icon ),
-	m_pixmap(),
-	m_mouseOver( false ),
 	m_label( label ),
 	m_altLabel( altLabel ),
 	m_descr( description )
@@ -149,7 +146,7 @@ void ToolButton::leaveEvent( QEvent* event )
 
 void ToolButton::mousePressEvent( QMouseEvent* event )
 {
-	emit mouseLeftButton();
+	Q_EMIT mouseLeftButton();
 	QToolButton::mousePressEvent( event );
 }
 
@@ -208,7 +205,7 @@ void ToolButton::paintEvent( QPaintEvent* )
 
 	if( s_iconOnlyMode == false )
 	{
-		const auto label = ( active && m_altLabel.isEmpty() == false ) ? m_altLabel : m_label;
+		const auto label = ( isChecked() && m_altLabel.isEmpty() == false ) ? m_altLabel : m_label;
 		const int labelX = 1 + ( width() - painter.fontMetrics().boundingRect( label ).width() ) / 2;
 		const int deltaNormal = delta - 1;
 		const int deltaShadow = deltaNormal + 1;
@@ -233,7 +230,7 @@ bool ToolButton::checkForLeaveEvent()
 	}
 	else
 	{
-		emit mouseLeftButton();
+		Q_EMIT mouseLeftButton();
 		m_mouseOver = false;
 
 		return true;
@@ -332,14 +329,14 @@ void ToolButtonTip::resizeEvent( QResizeEvent * _re )
 	p.setPen( pen );
 	QLinearGradient grad( 0, 0, 0, height() );
 	const QColor color_top = palette().color( QPalette::Active,
-											  QPalette::Window ).light( 120 );
+											  QPalette::Window ).lighter( 120 );
 	grad.setColorAt( 0, color_top );
 	grad.setColorAt( 1, palette().color( QPalette::Active,
 										 QPalette::Window ).
-					 light( 80 ) );
+					 lighter( 80 ) );
 	p.setBrush( grad );
-	p.drawRoundRect( 0, 0, width() - 1, height() - 1,
-					 ROUNDED / width(), ROUNDED / height() );
+	p.drawRoundedRect( 0, 0, width() - 1, height() - 1, ROUNDED / width(), ROUNDED / height() );
+
 	if( m_toolButton )
 	{
 		QPoint pt = m_toolButton->mapToGlobal( QPoint( 0, 0 ) );
@@ -393,8 +390,7 @@ void ToolButtonTip::updateMask()
 	QPainter p( &b );
 	p.setBrush( Qt::color1 );
 	p.setPen( Qt::color1 );
-	p.drawRoundRect( 0, 0, width() - 1, height() - 1,
-					 ROUNDED / width(), ROUNDED / height() );
+	p.drawRoundedRect( 0, 0, width() - 1, height() - 1, ROUNDED / width(), ROUNDED / height() );
 
 	if( m_toolButton )
 	{

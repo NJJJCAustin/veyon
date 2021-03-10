@@ -1,7 +1,7 @@
 /*
  * X11VncConfiguration.h - x11vnc-specific configuration values
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -29,5 +29,7 @@
 #define FOREACH_X11VNC_CONFIG_PROPERTY(OP) \
 	OP( X11VncConfiguration, m_configuration, bool, isXDamageDisabled, setXDamageDisabled, "XDamageDisabled", "X11Vnc", false, Configuration::Property::Flag::Advanced )	\
 	OP( X11VncConfiguration, m_configuration, QString, extraArguments, setExtraArguments, "ExtraArguments", "X11Vnc", QString(), Configuration::Property::Flag::Advanced )
+
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(X11VncConfiguration, FOREACH_X11VNC_CONFIG_PROPERTY)

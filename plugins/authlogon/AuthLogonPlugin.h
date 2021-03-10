@@ -1,7 +1,7 @@
 /*
  * AuthLogonPlugin.h - declaration of AuthLogonPlugin class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -68,17 +68,20 @@ public:
 		return QStringLiteral( "Tobias Junghans" );
 	}
 
-	QString authenticationTypeName() const override
+	QString authenticationMethodName() const override
 	{
-		return description();
+		return tr("Logon");
+	}
+
+	QWidget* createAuthenticationConfigurationWidget() override
+	{
+		return nullptr;
 	}
 
 	bool initializeCredentials() override;
 	bool hasCredentials() const override;
 
 	bool checkCredentials() const override;
-
-	void configureCredentials() override;
 
 	VncServerClient::AuthState performAuthentication( VncServerClient* client, VariantArrayMessage& message ) const override;
 

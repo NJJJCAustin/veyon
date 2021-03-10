@@ -1,7 +1,7 @@
 /*
  * AccessControlPage.cpp - implementation of the access control page
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -36,8 +36,8 @@
 
 #include "ui_AccessControlPage.h"
 
-AccessControlPage::AccessControlPage() :
-	ConfigurationPage(),
+AccessControlPage::AccessControlPage( QWidget* parent ) :
+	ConfigurationPage( parent ),
 	ui(new Ui::AccessControlPage),
 	m_accessControlRulesModel( this ),
 	m_accessControlRulesTestDialog( this )

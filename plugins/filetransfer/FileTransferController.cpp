@@ -1,7 +1,7 @@
 /*
  * FileTransferController.cpp - implementation of FileTransferController class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -31,15 +31,7 @@
 
 FileTransferController::FileTransferController( FileTransferPlugin* plugin ) :
 	QObject( plugin ),
-	m_plugin( plugin ),
-	m_currentFileIndex( -1 ),
-	m_currentTransferId(),
-	m_files(),
-	m_flags( Transfer ),
-	m_interfaces(),
-	m_fileReadThread( nullptr ),
-	m_fileState( FileStateFinished ),
-	m_processTimer( this )
+	m_plugin( plugin )
 {
 	m_processTimer.setInterval( ProcessInterval );
 	connect( &m_processTimer, &QTimer::timeout, this, &FileTransferController::process );
@@ -49,10 +41,7 @@ FileTransferController::FileTransferController( FileTransferPlugin* plugin ) :
 
 FileTransferController::~FileTransferController()
 {
-	if( m_fileReadThread )
-	{
-		delete m_fileReadThread;
-	}
+	delete m_fileReadThread;
 }
 
 
@@ -61,7 +50,7 @@ void FileTransferController::setFiles( const QStringList& files )
 {
 	m_files = files;
 	m_currentFileIndex = 0;
-	emit filesChanged();
+	Q_EMIT filesChanged();
 }
 
 
@@ -88,7 +77,7 @@ void FileTransferController::start()
 		m_fileState = FileStateOpen;
 		m_processTimer.start();
 
-		emit started();
+		Q_EMIT started();
 	}
 }
 
@@ -109,7 +98,7 @@ void FileTransferController::stop()
 		m_plugin->sendCancelMessage( m_currentTransferId, m_interfaces );
 	}
 
-	emit finished();
+	Q_EMIT finished();
 }
 
 
@@ -168,7 +157,7 @@ void FileTransferController::process()
 			}
 
 			m_processTimer.stop();
-			emit finished();
+			Q_EMIT finished();
 		}
 		else
 		{
@@ -195,7 +184,7 @@ bool FileTransferController::openFile()
 	{
 		delete m_fileReadThread;
 		m_fileReadThread = nullptr;
-		emit errorOccured( tr( "Could not open file \"%1\" for reading! Please check your permissions!" ).arg( m_currentFileIndex ) );
+		Q_EMIT errorOccured( tr( "Could not open file \"%1\" for reading! Please check your permissions!" ).arg( m_currentFileIndex ) );
 		return false;
 	}
 
@@ -255,12 +244,12 @@ void FileTransferController::updateProgress()
 {
 	if( m_files.isEmpty() == false && m_fileReadThread )
 	{
-		emit progressChanged( m_currentFileIndex * 100 / m_files.count() +
+		Q_EMIT progressChanged( m_currentFileIndex * 100 / m_files.count() +
 							  m_fileReadThread->progress() / m_files.count() );
 	}
 	else if( m_files.count() > 0 && m_currentFileIndex >= m_files.count() )
 	{
-		emit progressChanged( 100 );
+		Q_EMIT progressChanged( 100 );
 	}
 }
 

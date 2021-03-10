@@ -1,7 +1,7 @@
 /*
  * ComputerMonitoringItem.h - provides a view with computer monitor thumbnails
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -57,8 +57,6 @@ public:
 
 	void componentComplete() override;
 
-	void autoAdjustComputerScreenSize();
-
 	void setUseCustomComputerPositions( bool enabled ) override;
 	void alignComputers() override;
 
@@ -85,7 +83,7 @@ private:
 
 	QList<NetworkObject::Uid> m_selectedObjects;
 
-signals:
+Q_SIGNALS:
 	void backgroundColorChanged();
 	void textColorChanged();
 	void iconSizeChanged();

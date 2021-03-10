@@ -1,7 +1,7 @@
 /*
  * GeneralConfigurationPage.h - configuration page with general settings
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -32,7 +32,7 @@ class GeneralConfigurationPage : public ConfigurationPage
 {
 	Q_OBJECT
 public:
-	GeneralConfigurationPage();
+	GeneralConfigurationPage( QWidget* parent = nullptr );
 	~GeneralConfigurationPage() override;
 
 	void resetWidgets() override;
@@ -40,9 +40,6 @@ public:
 	void applyConfiguration() override;
 
 private:
-	void configureAuthentication();
-	void testAuthentication();
-
 	void openLogFileDirectory();
 	void clearLogFiles();
 

@@ -1,7 +1,7 @@
 /*
  * FeatureListModel.cpp - data model for features
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -72,7 +72,7 @@ QVariant FeatureListModel::data( const QModelIndex& index, int role ) const
 	case DataRole::Name: return feature.name();
 	case DataRole::DisplayName: return feature.displayName();
 	case DataRole::DisplayNameActive: return feature.displayNameActive();
-	case DataRole::IconUrl: return QStringLiteral("qrc") + feature.iconUrl();
+	case DataRole::IconUrl: return QString{ QStringLiteral("qrc") + feature.iconUrl() };
 	case DataRole::Description: return feature.description();
 	case DataRole::Uid: return feature.uid();
 	}

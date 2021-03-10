@@ -1,7 +1,7 @@
 /*
  * LinuxKeyboardInput.cpp - implementation of LinuxKeyboardInput class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -31,7 +31,7 @@
 
 LinuxKeyboardInput::LinuxKeyboardInput() :
 	m_display( XOpenDisplay( nullptr ) ),
-	m_fakeKeyHandle( fakekey_init( m_display ) )
+	m_fakeKeyHandle( m_display ? fakekey_init( m_display ) : nullptr )
 {
 }
 
@@ -39,16 +39,39 @@ LinuxKeyboardInput::LinuxKeyboardInput() :
 
 LinuxKeyboardInput::~LinuxKeyboardInput()
 {
-	free( m_fakeKeyHandle );
-	XCloseDisplay( m_display );
+	if( m_fakeKeyHandle )
+	{
+		free( m_fakeKeyHandle );
+	}
+
+	if( m_display )
+	{
+		XCloseDisplay( m_display );
+	}
 }
 
 
 
-void LinuxKeyboardInput::pressAndReleaseKey( uint32_t keysym )
+void LinuxKeyboardInput::pressKey( KeySym keysym )
 {
 	fakekey_press_keysym( m_fakeKeyHandle, keysym, 0 );
+}
+
+
+
+void LinuxKeyboardInput::releaseKey( KeySym keysym )
+{
+	Q_UNUSED(keysym)
+
 	fakekey_release( m_fakeKeyHandle );
+}
+
+
+
+void LinuxKeyboardInput::pressAndReleaseKey( KeySym keysym )
+{
+	pressKey( keysym );
+	releaseKey( keysym );
 }
 
 

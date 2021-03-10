@@ -18,12 +18,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 if(COMMAND CMAKE_POLICY)
 	cmake_policy(SET CMP0009 NEW)
 	cmake_policy(SET CMP0020 NEW)
+	cmake_policy(SET CMP0058 NEW)
 	cmake_policy(SET CMP0063 NEW)
 	if(${CMAKE_VERSION} VERSION_GREATER "3.8.0")
 		cmake_policy(SET CMP0069 NEW)
 	endif()
 	if(${CMAKE_VERSION} VERSION_GREATER "3.12.0")
 		cmake_policy(SET CMP0075 NEW)
+	endif()
+	if(${CMAKE_VERSION} VERSION_GREATER "3.14.0")
+		cmake_policy(SET CMP0083 NEW)
 	endif()
 endif()
 
@@ -34,7 +38,6 @@ include(CheckFunctionExists)
 include(CheckSymbolExists)
 include(CheckTypeSize)
 include(GNUInstallDirs)
-include(CotireVeyon)
 include(ConfigureFiles)
 include(SetDefaultTargetProperties)
 
@@ -138,7 +141,7 @@ else()
 endif()
 
 
-set(VEYON_CORE_INCLUDE_DIR core/include)
+set(VEYON_CORE_INCLUDE_DIR core/src)
 
 # find required Qt5 modules
 find_package(Qt5Core REQUIRED)
@@ -152,49 +155,63 @@ find_package(Qt5QuickControls2 REQUIRED)
 if(VEYON_BUILD_ANDROID)
 find_package(Qt5AndroidExtras REQUIRED)
 endif()
-if(VEYON_DEBUG)
-find_package(Qt5Test REQUIRED)
-set(VEYON_DEBUG_LIBRARIES Qt5::Test)
-endif()
 
 # find required libraries
-find_package(ZLIB REQUIRED)
-find_package(PNG REQUIRED)
-find_package(JPEG REQUIRED)
-find_package(LZO REQUIRED)
 find_package(QCA REQUIRED)
-
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-find_package(Threads REQUIRED)
-
-# FindOpenSSL.cmake in recent versions of CMake will only find the DLLs instead
-# of the import libraries if CYGWIN is not set
-set(CYGWIN TRUE)
 find_package(OpenSSL REQUIRED)
-unset(CYGWIN)
 
 # find Linux-specific packages
 if(VEYON_BUILD_LINUX)
 	include(XdgInstall)
 endif()
 
+find_package(LibVNCClient 0.9.13)
 
-### BEGIN: libvncserver configuration
-include(LibVNCServerIntegration)
+if(LibVNCClient_FOUND)
+	include(CheckCSourceCompiles)
+	set(CMAKE_REQUIRED_LIBRARIES LibVNC::LibVNCClient)
+	check_c_source_compiles("
+#include <rfb/rfbclient.h>
 
-set(_RFB_RFBCONFIG_H TRUE)
-set(LIBVNCSERVER_HAVE_LIBJPEG TRUE)
-set(LIBVNCSERVER_HAVE_LZO TRUE)
-set(LIBVNCSERVER_HAVE_LIBPNG TRUE)
-set(LIBVNCSERVER_HAVE_LIBPTHREAD TRUE)
-set(LIBVNCSERVER_HAVE_LIBZ TRUE)
-set(LIBVNCSERVER_HAVE_LIBSSL TRUE)
-set(LIBVNCSERVER_ALLOW24BPP TRUE)
-set(LIBVNCSERVER_IPv6 TRUE)
-### END: libvncserver configuration
+int main()
+{
+	rfbClient* client = rfbGetClient( 8, 3, 4 );
+	client->connectTimeout = 1;
+	client->readTimeout = 1;
+	return 0;
+}
+"
+	LIBVNCCLIENT_SUPPORTS_TIMEOUTS)
+	if(NOT LIBVNCCLIENT_SUPPORTS_TIMEOUTS)
+		message(FATAL_ERROR "Outdated development version of LibVNCClient found")
+	endif()
+	unset(CMAKE_REQUIRED_LIBRARIES)
+else()
+	message(WARNING "Performing internal build of LibVNCClient which requires additional development packages")
+	find_package(ZLIB REQUIRED)
+	find_package(PNG REQUIRED)
+	find_package(JPEG REQUIRED)
+	find_package(LZO REQUIRED)
+	set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+	find_package(Threads REQUIRED)
+endif()
 
+option(WITH_LTO "Build with link-time optimization" ON)
+option(WITH_PCH "Reduce compile time by using precompiled headers (requires CMake >= 3.16)" ON)
+option(WITH_UNITY_BUILD "Reduce compile time by using cmake unity builds (requires CMake >= 3.16)" ON)
+option(WITH_SANITIZERS "Build with thread and UB sanitizers" OFF)
+option(WITH_MODEL_TESTERS "Build with model testers (turn on for debugging only)" OFF)
+option(WITH_CORE_ONLY "Build core library only" OFF)
+option(WITH_ADDONS "Build add-ons" OFF)
 
-if(SANITIZE)
+if(${CMAKE_VERSION} VERSION_LESS "3.16.0")
+	set(WITH_PCH OFF)
+	set(WITH_UNITY_BUILD OFF)
+elseif(WITH_UNITY_BUILD)
+	set(CMAKE_UNITY_BUILD ON)
+endif()
+
+if(WITH_SANITIZERS)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -fsanitize=undefined")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread -fsanitize=undefined")
 endif()
@@ -205,7 +222,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-strong -fno-exceptions
 
 if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6.0)
 message(WARNING "Not using -fvisibility=hidden and/or LTO with GCC < 6.0")
-set(DISABLE_LTO TRUE)
+set(WITH_LTO OFF)
 else()
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -213,10 +230,26 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 endif()
 
 if(VEYON_BUILD_WIN32 OR VEYON_BUILD_WIN64)
-set(DISABLE_LTO TRUE)
+set(WITH_LTO OFF)
 endif()
 
-add_definitions(-DQT_DEPRECATED_WARNINGS -DQT_DISABLE_DEPRECATED_BEFORE=0x051200 -D_FORTIFY_SOURCE=2 -DQT_NO_CAST_FROM_ASCII -DQT_NO_CAST_TO_ASCII -DQT_NO_CAST_FROM_BYTEARRAY)
+if(WITH_MODEL_TESTERS)
+find_package(Qt5Test REQUIRED)
+set(VEYON_DEBUG_LIBRARIES Qt5::Test)
+endif()
+
+add_definitions(
+	-DQT_DEPRECATED_WARNINGS
+	-DQT_DISABLE_DEPRECATED_BEFORE=0x050e00
+	-D_FORTIFY_SOURCE=2
+	-DQT_NO_CAST_FROM_ASCII
+	-DQT_NO_CAST_TO_ASCII
+	-DQT_NO_CAST_FROM_BYTEARRAY
+	-DQT_NO_KEYWORDS
+	-DQT_NO_NARROWING_CONVERSIONS_IN_CONNECT
+	-DQT_USE_QSTRINGBUILDER
+	-DQT_STRICT_ITERATORS
+)
 
 file(GLOB_RECURSE IN_FILES RELATIVE ${CMAKE_SOURCE_DIR} "*config.h.in" "*.rc.in" "*.desktop.in" "*.policy.in" "*.service.in" "*.manifest.in" "*.nsi.in")
 CONFIGURE_FILES(${IN_FILES})
@@ -230,6 +263,7 @@ set(ultravnc_DIR ${3rdparty_DIR}/ultravnc)
 set(libvncserver_DIR ${3rdparty_DIR}/libvncserver)
 set(x11vnc_DIR ${3rdparty_DIR}/x11vnc)
 set(libfakekey_DIR ${3rdparty_DIR}/libfakekey)
+set(qthttpserver_DIR ${3rdparty_DIR}/qthttpserver)
 
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
@@ -256,80 +290,25 @@ endif()
 
 # make sub-directories
 add_subdirectory(core)
-add_subdirectory(server)
-add_subdirectory(service)
-add_subdirectory(master)
-add_subdirectory(configurator)
-add_subdirectory(cli)
-add_subdirectory(worker)
-add_subdirectory(plugins)
-add_subdirectory(translations)
-
-# write libvncserver/libvncclient configuration header
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${VEYON_CORE_INCLUDE_DIR}/rfb)
-configure_file(${CMAKE_SOURCE_DIR}/3rdparty/libvncserver/rfb/rfbconfig.h.cmakein ${CMAKE_BINARY_DIR}/${VEYON_CORE_INCLUDE_DIR}/rfb/rfbconfig.h @ONLY)
-
+if(NOT WITH_CORE_ONLY)
+	add_subdirectory(server)
+	add_subdirectory(service)
+	add_subdirectory(master)
+	add_subdirectory(configurator)
+	add_subdirectory(cli)
+	add_subdirectory(worker)
+	add_subdirectory(plugins)
+	add_subdirectory(translations)
+endif()
+if(WITH_ADDONS)
+	add_subdirectory(addons)
+endif()
 
 #
-# add target for generating Windows installer
+# add Windows installer related targets
 #
-
 if(WIN32)
-	set(TMP "veyon-${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_BUILD}")
-
-	set(DLLDIR "${MINGW_PREFIX}/bin")
-	set(DLLDIR_LIB "${MINGW_PREFIX}/lib")
-	set(DLLDIR_GCC "/usr/lib/gcc/${MINGW_TARGET}/${COMPILER_VERSION_MAJOR_MINOR}-posix")
-	if(VEYON_BUILD_WIN64)
-		set(DLL_GCC "libgcc_s_seh-1.dll")
-		set(DLL_DDENGINE "ddengine64.dll")
-	else()
-		set(DLL_GCC "libgcc_s_sjlj-1.dll")
-		set(DLL_DDENGINE "ddengine.dll")
-	endif()
-
-	add_custom_target(win-nsi
-			COMMAND make
-			COMMAND rm -rf ${TMP}
-			COMMAND mkdir -p ${TMP}/interception
-			COMMAND cp ${CMAKE_SOURCE_DIR}/3rdparty/interception/* ${TMP}/interception
-			COMMAND cp ${CMAKE_SOURCE_DIR}/3rdparty/ddengine/${DLL_DDENGINE} ${TMP}
-			COMMAND cp core/veyon-core.dll server/veyon-server.exe service/veyon-service.exe plugins/vncserver/ultravnc-builtin/vnchooks/vnchooks.dll master/veyon-master.exe configurator/veyon-configurator.exe cli/*.exe worker/veyon-worker.exe ${TMP}
-			COMMAND mkdir -p ${TMP}/plugins
-			COMMAND find plugins/ -name '*.dll' -exec cp '{}' ${TMP}/plugins/ '\;'
-			COMMAND mv ${TMP}/plugins/lib*.dll ${TMP}
-			COMMAND mkdir -p ${TMP}/translations
-			COMMAND cp translations/*qm ${TMP}/translations/
-			COMMAND cp ${DLLDIR}/libjpeg-62.dll ${TMP}
-			COMMAND cp ${DLLDIR}/libpng16-16.dll ${TMP}
-			COMMAND cp ${DLLDIR}/libcrypto-1_1*.dll ${DLLDIR}/libssl-1_1*.dll ${TMP}
-			COMMAND cp ${DLLDIR}/libqca-qt5.dll ${TMP}
-			COMMAND cp ${DLLDIR}/libsasl2-3.dll ${TMP}
-			COMMAND cp ${DLLDIR}/libldap.dll ${DLLDIR}/liblber.dll ${TMP}
-			COMMAND cp ${DLLDIR}/interception.dll ${TMP}
-			COMMAND cp ${DLLDIR}/liblzo2-2.dll ${TMP}
-			COMMAND cp ${DLLDIR_LIB}/zlib1.dll ${TMP}
-			COMMAND cp ${DLLDIR_LIB}/libwinpthread-1.dll ${TMP}
-			COMMAND cp ${DLLDIR_GCC}/libstdc++-6.dll ${TMP}
-			COMMAND cp ${DLLDIR_GCC}/libssp-0.dll ${TMP}
-			COMMAND cp ${DLLDIR_GCC}/${DLL_GCC} ${TMP}
-			COMMAND mkdir -p ${TMP}/crypto
-			COMMAND cp ${DLLDIR_LIB}/qca-qt5/crypto/libqca-ossl.dll ${TMP}/crypto
-			COMMAND cp ${DLLDIR}/Qt5Core.dll ${DLLDIR}/Qt5Gui.dll ${DLLDIR}/Qt5Widgets.dll ${DLLDIR}/Qt5Network.dll ${DLLDIR}/Qt5Concurrent.dll ${DLLDIR}/Qt5Qml.dll ${DLLDIR}/Qt5Quick.dll ${DLLDIR}/Qt5QuickControls2.dll ${DLLDIR}/Qt5QuickTemplates2.dll ${TMP}
-			COMMAND mkdir -p ${TMP}/platforms
-			COMMAND cp ${DLLDIR_LIB}/qt5/plugins/platforms/qwindows.dll ${TMP}/platforms
-			COMMAND mkdir -p ${TMP}/styles
-			COMMAND cp ${DLLDIR_LIB}/qt5/plugins/styles/*.dll ${TMP}/styles
-			COMMAND ${STRIP} ${TMP}/*.dll ${TMP}/*.exe ${TMP}/plugins/*.dll ${TMP}/platforms/*.dll ${TMP}/styles/*.dll ${TMP}/crypto/*.dll
-			COMMAND cp ${CMAKE_SOURCE_DIR}/COPYING ${TMP}
-			COMMAND cp ${CMAKE_SOURCE_DIR}/COPYING ${TMP}/LICENSE.TXT
-			COMMAND cp ${CMAKE_SOURCE_DIR}/README.md ${TMP}/README.TXT
-			COMMAND todos ${TMP}/*.TXT
-			COMMAND cp nsis/veyon.nsi ${TMP}
-			COMMAND makensis ${TMP}/veyon.nsi
-			COMMAND mv ${TMP}/veyon-*setup.exe .
-			#COMMAND rm -rf ${TMP}
-		)
+	include(WindowsInstaller)
 endif()
 
 #
@@ -353,4 +332,8 @@ message("\n"
 "* Build type                  : ${CMAKE_BUILD_TYPE}\n"
 "* Build platform              : ${CMAKE_SYSTEM_PROCESSOR}\n"
 "* Compile flags               : ${CMAKE_C_FLAGS} (CXX: ${CMAKE_CXX_FLAGS})\n"
+"* Link-time optimization      : ${WITH_LTO}\n"
+"* Use precompiled headers     : ${WITH_PCH}\n"
+"* Use unity build             : ${WITH_UNITY_BUILD}\n"
+"* Build with sanitizers       : ${WITH_SANITIZERS}\n"
 )

@@ -1,7 +1,7 @@
 /*
  * ConfigurationObject.cpp - implementation of ConfigurationObject
  *
- * Copyright (c) 2009-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2009-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -76,7 +76,8 @@ QVariant Property::variantValue() const
 	{
 		return m_object->value( m_key, m_parentKey, m_defaultValue );
 	}
-	else if( m_proxy )
+
+	if( m_proxy )
 	{
 		return m_proxy->value( m_key, m_parentKey, m_defaultValue );
 	}
@@ -98,7 +99,7 @@ void Property::setVariantValue( const QVariant& value ) const
 	}
 	else
 	{
-		qFatal(Q_FUNC_INFO);
+		vCritical();
 	}
 }
 

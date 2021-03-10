@@ -1,7 +1,7 @@
 /*
  * UserSessionControlPlugin.cpp - implementation of UserSessionControlPlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -53,6 +53,43 @@ UserSessionControlPlugin::UserSessionControlPlugin( QObject* parent ) :
 
 
 
+bool UserSessionControlPlugin::controlFeature( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
+											  const ComputerControlInterfaceList& computerControlInterfaces )
+{
+	if( operation != Operation::Start )
+	{
+		return false;
+	}
+
+	if( featureUid == m_userLoginFeature.uid() )
+	{
+		const auto username = arguments.value( argToString(Argument::Username) ).toString();
+		const auto password = arguments.value( argToString(Argument::Password) ).toByteArray();
+		if( username.isEmpty() )
+		{
+			return false;
+		}
+
+		sendFeatureMessage( FeatureMessage{ featureUid, FeatureMessage::DefaultCommand }
+								.addArgument( Argument::Username, username )
+								.addArgument( Argument::Password, VeyonCore::cryptoCore().encryptPassword( password ) ),
+							computerControlInterfaces );
+
+		return true;
+	}
+
+	if( featureUid == m_userLogoffFeature.uid() )
+	{
+		sendFeatureMessage( FeatureMessage{ featureUid, FeatureMessage::DefaultCommand }, computerControlInterfaces );
+
+		return true;
+	}
+
+	return false;
+}
+
+
+
 bool UserSessionControlPlugin::startFeature( VeyonMasterInterface& master, const Feature& feature,
 											 const ComputerControlInterfaceList& computerControlInterfaces )
 {
@@ -68,17 +105,17 @@ bool UserSessionControlPlugin::startFeature( VeyonMasterInterface& master, const
 		UserLoginDialog loginDialog( master.mainWindow() );
 		if( loginDialog.exec() )
 		{
-			return sendFeatureMessage( FeatureMessage( m_userLoginFeature.uid(), FeatureMessage::DefaultCommand ).
-									   addArgument( Argument::Username, loginDialog.username() ).
-									   addArgument( Argument::Password,
-													VeyonCore::cryptoCore().encryptPassword( loginDialog.password().toByteArray() ) ),
-									   computerControlInterfaces );
+			return controlFeature( feature.uid(), Operation::Start,
+								   {
+									   { argToString(Argument::Username), loginDialog.username() },
+									   { argToString(Argument::Password), loginDialog.password().toByteArray() }
+								   },
+								   computerControlInterfaces );
 		}
 	}
 	else if( feature == m_userLogoffFeature )
 	{
-		return sendFeatureMessage( FeatureMessage( m_userLogoffFeature.uid(), FeatureMessage::DefaultCommand ),
-								   computerControlInterfaces );
+		return controlFeature( feature.uid(), Operation::Start, {}, computerControlInterfaces );
 	}
 
 	return false;
@@ -100,7 +137,8 @@ bool UserSessionControlPlugin::handleFeatureMessage( VeyonServerInterface& serve
 																message.argument( Argument::Password ).toString() ) );
 		return true;
 	}
-	else if( message.featureUid() == m_userLogoffFeature.uid() )
+
+	if( message.featureUid() == m_userLogoffFeature.uid() )
 	{
 		VeyonCore::platform().userFunctions().logoff();
 		return true;

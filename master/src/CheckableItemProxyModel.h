@@ -1,7 +1,7 @@
 /*
  * CheckableItemProxyModel.h - proxy model for overlaying checked property
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -53,9 +53,9 @@ private:
 	bool setChildData( const QModelIndex &index, Qt::CheckState checkState );
 	void setParentData( const QModelIndex &index, Qt::CheckState checkState );
 
-	int m_uidRole;
-	int m_exceptionRole;
-	QVariant m_exceptionData;
+	int m_uidRole{-1};
+	int m_exceptionRole{-1};
+	QVariant m_exceptionData{};
 	QHash<QUuid, Qt::CheckState> m_checkStates;
 
 };

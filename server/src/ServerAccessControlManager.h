@@ -1,7 +1,7 @@
 /*
  * ServerAccessControlManager.h - header file for ServerAccessControlManager
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -41,7 +41,7 @@ public:
 	void removeClient( VncServerClient* client );
 
 
-signals:
+Q_SIGNALS:
 	void finished( VncServerClient* client );
 
 private:
@@ -56,11 +56,11 @@ private:
 	FeatureWorkerManager& m_featureWorkerManager;
 	DesktopAccessDialog& m_desktopAccessDialog;
 
-	VncServerClientList m_clients;
+	VncServerClientList m_clients{};
 
 	using HostUserPair = QPair<QString, QString>;
 	using DesktopAccessChoiceMap = QMap<HostUserPair, DesktopAccessDialog::Choice>;
 
-	DesktopAccessChoiceMap m_desktopAccessChoices;
+	DesktopAccessChoiceMap m_desktopAccessChoices{};
 
 } ;

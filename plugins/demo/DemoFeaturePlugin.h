@@ -1,7 +1,7 @@
 /*
  * DemoFeaturePlugin.h - declaration of DemoFeaturePlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -24,11 +24,15 @@
 
 #pragma once
 
+#include <QGuiApplication>
+
 #include "AuthenticationPluginInterface.h"
 #include "ConfigurationPagePluginInterface.h"
 #include "DemoAuthentication.h"
 #include "DemoConfiguration.h"
 #include "FeatureProviderInterface.h"
+
+class QScreen;
 
 class DemoServer;
 class DemoClient;
@@ -42,6 +46,21 @@ class DemoFeaturePlugin : public QObject, FeatureProviderInterface, PluginInterf
 				 ConfigurationPagePluginInterface
 				 AuthenticationPluginInterface)
 public:
+	enum class Argument {
+		DemoAccessToken,
+		VncServerPort,
+		VncServerPassword,
+		DemoServerHost,
+		DemoServerPort,
+		Viewport,
+		ViewportX,
+		ViewportY,
+		ViewportWidth,
+		ViewportHeight,
+		VncServerPortOffset
+	};
+	Q_ENUM(Argument)
+
 	explicit DemoFeaturePlugin( QObject* parent = nullptr );
 	~DemoFeaturePlugin() override = default;
 
@@ -80,14 +99,14 @@ public:
 		return m_features;
 	}
 
+	bool controlFeature( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
+						const ComputerControlInterfaceList& computerControlInterfaces ) override;
+
 	bool startFeature( VeyonMasterInterface& master, const Feature& feature,
 					   const ComputerControlInterfaceList& computerControlInterfaces ) override;
 
 	bool stopFeature( VeyonMasterInterface& master, const Feature& feature,
 					  const ComputerControlInterfaceList& computerControlInterfaces ) override;
-
-	bool handleFeatureMessage( VeyonMasterInterface& master, const FeatureMessage& message,
-							   ComputerControlInterface::Pointer computerControlInterface ) override;
 
 	bool handleFeatureMessage( VeyonServerInterface& server,
 							   const MessageContext& messageContext,
@@ -98,6 +117,20 @@ public:
 	ConfigurationPage* createConfigurationPage() override;
 
 private:
+	static constexpr auto ScreenSelectionNone = 0;
+
+	void addScreen( QScreen* screen );
+	void removeScreen( QScreen* screen );
+
+	void updateFeatures();
+
+	QRect viewportFromScreenSelection() const;
+
+	bool controlDemoServer( Operation operation, const QVariantMap& arguments,
+						   const ComputerControlInterfaceList& computerControlInterfaces );
+	bool controlDemoClient( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
+						   const ComputerControlInterfaceList& computerControlInterfaces );
+
 	enum Commands {
 		StartDemoServer,
 		StopDemoServer,
@@ -105,23 +138,26 @@ private:
 		StopDemoClient
 	};
 
-	enum Arguments {
-		DemoAccessToken,
-		VncServerPort,
-		VncServerPassword,
-		DemoServerHost,
-	};
-
-	const Feature m_fullscreenDemoFeature;
-	const Feature m_windowDemoFeature;
+	const Feature m_demoFeature;
+	const Feature m_demoClientFullScreenFeature;
+	const Feature m_demoClientWindowFeature;
+	const Feature m_shareOwnScreenFullScreenFeature;
+	const Feature m_shareOwnScreenWindowFeature;
+	const Feature m_shareUserScreenFullScreenFeature;
+	const Feature m_shareUserScreenWindowFeature;
 	const Feature m_demoServerFeature;
-	const FeatureList m_features;
+	const FeatureList m_staticFeatures{};
+	FeatureList m_features{};
+
+	FeatureList m_screenSelectionFeatures{};
+	int m_screenSelection{ScreenSelectionNone};
+	QList<QScreen *> m_screens{QGuiApplication::screens()};
 
 	DemoConfiguration m_configuration;
 
-	QStringList m_demoClientHosts;
+	QStringList m_demoClientHosts{};
 
-	DemoServer* m_demoServer;
-	DemoClient* m_demoClient;
+	DemoServer* m_demoServer{nullptr};
+	DemoClient* m_demoClient{nullptr};
 
 };

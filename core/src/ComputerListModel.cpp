@@ -1,7 +1,7 @@
 /*
  * ComputerListModel.cpp - data model base class for computer objects
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -29,7 +29,8 @@
 ComputerListModel::ComputerListModel( QObject* parent ) :
 	QAbstractListModel( parent ),
 	m_displayRoleContent( VeyonCore::config().computerDisplayRoleContent() ),
-	m_sortOrder( VeyonCore::config().computerMonitoringSortOrder() )
+	m_sortOrder( VeyonCore::config().computerMonitoringSortOrder() ),
+	m_aspectRatio( VeyonCore::config().computerMonitoringAspectRatio() )
 {
 }
 

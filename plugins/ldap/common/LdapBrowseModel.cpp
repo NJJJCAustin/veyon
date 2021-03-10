@@ -1,7 +1,7 @@
 /*
  * LdapModel.cpp - item model for browsing LDAP directories
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -387,7 +387,7 @@ void LdapBrowseModel::populateNode( const QModelIndex& parent )
 		{
 			beginInsertRows( parent, 0, itemCount - 1 );
 
-			for( const auto& dn : dns )
+			for( const auto& dn : qAsConst(dns) )
 			{
 				node->appendChild( new Node( Node::DN, dn, node ) );
 			}
@@ -399,7 +399,7 @@ void LdapBrowseModel::populateNode( const QModelIndex& parent )
 
 			endInsertRows();
 
-			emit layoutChanged();
+			Q_EMIT layoutChanged();
 		}
 
 		node->setPopulated( true );

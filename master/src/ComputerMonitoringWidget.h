@@ -1,7 +1,7 @@
 /*
  * ComputerMonitoringWidget.h - provides a view with computer monitor thumbnails
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,6 +26,7 @@
 
 #include "ComputerMonitoringView.h"
 #include "FlexibleListView.h"
+#include "ComputerZoomWidget.h"
 
 #include <QWidget>
 
@@ -40,32 +41,51 @@ public:
 
 	ComputerControlInterfaceList selectedComputerControlInterfaces() const override;
 
-	void autoAdjustComputerScreenSize();
-
 	void setUseCustomComputerPositions( bool enabled ) override;
 	void alignComputers() override;
 
 	void showContextMenu( QPoint globalPos );
+
+	void setIconSize( const QSize& size ) override;
+
+	void setIgnoreWheelEvent( bool enabled )
+	{
+		m_ignoreWheelEvent = enabled;
+	}
+
+	QTimer m_mousePressAndHold;
 
 private:
 	void setColors( const QColor& backgroundColor, const QColor& textColor ) override;
 	QJsonArray saveComputerPositions() override;
 	bool useCustomComputerPositions() override;
 	void loadComputerPositions( const QJsonArray& positions ) override;
-	void setIconSize( const QSize& size ) override;
 
-	void populateFeatureMenu( const FeatureUidList& activeFeatures );
+	bool performIconSizeAutoAdjust() override;
+
+	void populateFeatureMenu( const ComputerControlInterfaceList& computerControlInterfaces );
 	void addFeatureToMenu( const Feature& feature, const QString& label );
 	void addSubFeaturesToMenu( const Feature& parentFeature, const FeatureList& subFeatures, const QString& label );
 
 	void runDoubleClickFeature( const QModelIndex& index );
+	void runMousePressAndHoldFeature( );
+	void stopMousePressAndHoldFeature( );
 
+	void mousePressEvent( QMouseEvent* event ) override;
+	void mouseReleaseEvent( QMouseEvent* event ) override;
+	void mouseMoveEvent( QMouseEvent * event ) override;
+	void resizeEvent( QResizeEvent* event ) override;
 	void showEvent( QShowEvent* event ) override;
 	void wheelEvent( QWheelEvent* event ) override;
 
 	QMenu* m_featureMenu{};
+	bool m_ignoreMousePressAndHoldEvent{false};
+	bool m_ignoreWheelEvent{false};
+	bool m_ignoreResizeEvent{false};
 
-signals:
+	ComputerZoomWidget* m_computerZoomWidget{nullptr};
+
+Q_SIGNALS:
 	void computerScreenSizeAdjusted( int size );
 
 };

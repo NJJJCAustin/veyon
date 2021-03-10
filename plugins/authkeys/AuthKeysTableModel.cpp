@@ -1,7 +1,7 @@
 /*
  * AuthKeysTableModel.cpp - implementation of AuthKeysTableModel class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -27,8 +27,7 @@
 
 AuthKeysTableModel::AuthKeysTableModel( AuthKeysManager& manager, QObject* parent ) :
 	QAbstractTableModel( parent ),
-	m_manager( manager ),
-	m_keys()
+	m_manager( manager )
 {
 }
 

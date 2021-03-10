@@ -1,7 +1,7 @@
 /*
  * UserGroupsBackendManager.cpp - implementation of UserGroupsBackendManager
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -29,7 +29,6 @@
 
 UserGroupsBackendManager::UserGroupsBackendManager( QObject* parent ) :
 	QObject( parent ),
-	m_backends(),
 	m_defaultBackend( nullptr ),
 	m_accessControlBackend( nullptr )
 {

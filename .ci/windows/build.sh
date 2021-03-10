@@ -2,7 +2,6 @@
 
 set -e
 
-CPUS=$(nproc)
 BASEDIR=$(pwd)
 BUILDDIR=/tmp/build-$1
 
@@ -12,16 +11,13 @@ rm -rf $BUILDDIR
 mkdir $BUILDDIR
 cd $BUILDDIR
 
-cmake $BASEDIR -DCMAKE_TOOLCHAIN_FILE=$BASEDIR/cmake/modules/Win${1}Toolchain.cmake -DCMAKE_MODULE_PATH=$BASEDIR/cmake/modules/
-
-echo Building on $CPUS CPUs
+cmake $BASEDIR -DCMAKE_TOOLCHAIN_FILE=$BASEDIR/cmake/modules/Win${1}Toolchain.cmake -DCMAKE_MODULE_PATH=$BASEDIR/cmake/modules/ -G Ninja $CMAKE_FLAGS
 
 if [ -z "$2" ] ; then
-	make -j$CPUS
-	make win-nsi
+	ninja windows-binaries
 else
-	make ${@:2} -j$CPUS
+	ninja ${@:2}
 fi
 
-mv -v veyon*setup.exe $BASEDIR
+mv veyon-*win* $BASEDIR
 

@@ -1,7 +1,7 @@
 /*
  * NetworkObjectFilterProxyModel.cpp - implementation of NetworkObjectFilterProxyModel
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -31,10 +31,7 @@
 
 
 NetworkObjectFilterProxyModel::NetworkObjectFilterProxyModel( QObject* parent ) :
-	QSortFilterProxyModel( parent ),
-	m_groupList(),
-	m_computerExcludeList(),
-	m_excludeEmptyGroups( false )
+	QSortFilterProxyModel( parent )
 {
 #if defined(QT_TESTLIB_LIB) && QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
 	new QAbstractItemModelTester( this, QAbstractItemModelTester::FailureReportingMode::Warning, this );

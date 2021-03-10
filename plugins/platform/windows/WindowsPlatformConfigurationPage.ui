@@ -100,6 +100,13 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QCheckBox" name="logonConfirmLegalNotice">
+        <property name="text">
+         <string>Confirm legal notice (message displayed before user logs in)</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -130,6 +137,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="useInterceptionDriver">
+        <property name="text">
+         <string>Use input device interception driver</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -153,6 +167,7 @@
   <tabstop>disableSSPIBasedUserAuthentication</tabstop>
   <tabstop>logonInputStartDelay</tabstop>
   <tabstop>logonKeyPressInterval</tabstop>
+  <tabstop>logonConfirmLegalNotice</tabstop>
   <tabstop>hideTaskbarForScreenLock</tabstop>
   <tabstop>hideStartMenuForScreenLock</tabstop>
   <tabstop>hideDesktopForScreenLock</tabstop>

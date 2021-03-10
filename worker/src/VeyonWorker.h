@@ -1,7 +1,7 @@
 /*
  * VeyonWorker.h - basic implementation of Veyon Worker
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -44,7 +44,7 @@ public:
 
 private:
 	VeyonCore m_core;
-	FeatureManager m_featureManager;
-	FeatureWorkerManagerConnection* m_workerManagerConnection;
+	FeatureManager m_featureManager{};
+	FeatureWorkerManagerConnection* m_workerManagerConnection{nullptr};
 
 } ;

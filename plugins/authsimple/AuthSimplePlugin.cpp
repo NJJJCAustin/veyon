@@ -1,7 +1,7 @@
 /*
  * AuthSimplePlugin.cpp - implementation of AuthSimplePlugin class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -23,6 +23,7 @@
  */
 
 #include <QApplication>
+#include <QLineEdit>
 #include <QMessageBox>
 
 #include "AuthSimplePlugin.h"
@@ -30,11 +31,27 @@
 #include "AuthSimpleDialog.h"
 #include "VariantArrayMessage.h"
 #include "VeyonConfiguration.h"
+#include "Configuration/UiMapping.h"
 
 
 AuthSimplePlugin::AuthSimplePlugin( QObject* parent ) :
 	QObject( parent )
 {
+}
+
+
+
+QWidget* AuthSimplePlugin::createAuthenticationConfigurationWidget()
+{
+	auto lineEdit = new QLineEdit;
+	lineEdit->setEchoMode( QLineEdit::Password );
+
+	AuthSimpleConfiguration config( &VeyonCore::config() );
+
+	Configuration::UiMapping::initWidgetFromProperty( config.passwordProperty(), lineEdit );
+	Configuration::UiMapping::connectWidgetToProperty( config.passwordProperty(), lineEdit );
+
+	return lineEdit;
 }
 
 
@@ -81,13 +98,6 @@ bool AuthSimplePlugin::checkCredentials() const
 	}
 
 	return true;
-}
-
-
-
-void AuthSimplePlugin::configureCredentials()
-{
-
 }
 
 

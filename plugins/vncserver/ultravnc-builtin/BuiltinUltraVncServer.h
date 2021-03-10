@@ -1,7 +1,7 @@
 /*
  * BuiltinUltraVncServer.h - declaration of BuiltinUltraVncServer class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -73,11 +73,16 @@ public:
 		return Plugin::ProvidesDefaultImplementation;
 	}
 
+	QStringList supportedSessionTypes() const override
+	{
+		return { QStringLiteral("console"), QStringLiteral("rdp") };
+	}
+
 	QWidget* configurationWidget() override;
 
 	void prepareServer() override;
 
-	void runServer( int serverPort, const Password& password ) override;
+	bool runServer( int serverPort, const Password& password ) override;
 
 	int configuredServerPort() override
 	{

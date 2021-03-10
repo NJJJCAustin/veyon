@@ -11,6 +11,8 @@ set(ldap_common_SOURCES
 	LdapConfigurationPage.h
 	LdapConfigurationPage.cpp
 	LdapConfigurationPage.ui
+	LdapConfigurationTest.h
+	LdapConfigurationTest.cpp
 	LdapDirectory.cpp
 	LdapDirectory.h
 	LdapNetworkObjectDirectory.cpp
@@ -25,5 +27,6 @@ target_include_directories(ldap-common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(ldap-common kldap-light veyon-core)
 set_default_target_properties(ldap-common)
 set_target_properties(ldap-common PROPERTIES LINK_FLAGS "-Wl,-no-undefined")
+if(NOT WITH_CORE_ONLY)
 install(TARGETS ldap-common DESTINATION ${VEYON_LIB_DIR})
-cotire_veyon(ldap-common)
+endif()

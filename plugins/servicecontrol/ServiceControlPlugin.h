@@ -1,7 +1,7 @@
 /*
  * ServiceControlPlugin.h - declaration of ServiceControlPlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -85,7 +85,7 @@ public:
 		return m_commands.value( command );
 	}
 
-public slots:
+public Q_SLOTS:
 	CommandLinePluginInterface::RunResult handle_register( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_unregister( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_start( const QStringList& arguments );

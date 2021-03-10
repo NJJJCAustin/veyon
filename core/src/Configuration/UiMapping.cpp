@@ -1,7 +1,7 @@
 /*
  * ConfigurationObject.cpp - implementation of ConfigurationObject
  *
- * Copyright (c) 2009-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2009-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -112,7 +112,7 @@ void UiMapping::initWidgetFromProperty( const Configuration::TypedProperty<QUuid
 
 void UiMapping::setFlags( QObject* object, Property::Flags flags )
 {
-#if QT_VERSION >= 0x051200
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
 	object->setProperty( WidgetConfigPropertyFlags, QVariant::fromValue( flags ) );
 #else
 	object->setProperty( WidgetConfigPropertyFlags, static_cast<unsigned int>( flags ) );
@@ -124,8 +124,8 @@ void UiMapping::setFlags( QObject* object, Property::Flags flags )
 Property::Flags UiMapping::flags( QObject* object )
 {
 	const auto flagsData = object->property( WidgetConfigPropertyFlags );
-#if QT_VERSION >= 0x051200
-	return flagsData.value<Object::PropertyFlags>();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
+	return flagsData.value<Property::Flags>();
 #else
 	return static_cast<Property::Flags>( flagsData.toUInt() );
 #endif

@@ -1,7 +1,7 @@
 /*
  * BuiltinX11VncServer.cpp - implementation of BuiltinX11VncServer class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -55,7 +55,7 @@ void BuiltinX11VncServer::prepareServer()
 
 
 
-void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
+bool BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 {
 	QStringList cmdline = { QStringLiteral("-localhost"),
 							QStringLiteral("-nosel"),			// do not exchange clipboard-contents
@@ -72,23 +72,19 @@ void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 		cmdline.append( extraArguments.split( QLatin1Char(' ') ) );
 	}
 
-	if( m_configuration.isXDamageDisabled() )
+	const auto systemEnv = QProcessEnvironment::systemEnvironment();
+	if( systemEnv.contains( QStringLiteral("XRDP_SESSION") ) )
+	{
+		cmdline.append( QStringLiteral("-noshm") );
+	}
+
+	if( m_configuration.isXDamageDisabled() ||
+		// workaround for x11vnc when running in a NX session or a Thin client LTSP session
+		systemEnv.contains( QStringLiteral("NXSESSIONID") ) ||
+		systemEnv.contains( QStringLiteral("X2GO_SESSION") ) ||
+		systemEnv.contains( QStringLiteral("LTSP_CLIENT_MAC") ) )
 	{
 		cmdline.append( QStringLiteral("-noxdamage") );
-	}
-	else
-	{
-		// workaround for x11vnc when running in an NX session or a Thin client LTSP session
-		const auto systemEnv = QProcess::systemEnvironment();
-		for( const auto& s : systemEnv )
-		{
-			if( s.startsWith( QStringLiteral("NXSESSIONID=") ) ||
-					s.startsWith( QStringLiteral("X2GO_SESSION=") ) ||
-					s.startsWith( QStringLiteral("LTSP_CLIENT_MAC=") ) )
-			{
-				cmdline.append( QStringLiteral("-noxdamage") );
-			}
-		}
 	}
 
 #ifdef VEYON_X11VNC_EXTERNAL
@@ -96,7 +92,7 @@ void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 	if( tempFile.open() == false ) // Flawfinder: ignore
 	{
 		vCritical() << "Could not create temporary file!";
-		return;
+		return false;
 	}
 	tempFile.write( password.toByteArray() );
 	tempFile.close();
@@ -115,12 +111,14 @@ void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 	{
 		vCritical() << "Could not start external x11vnc:" << x11vnc.errorString();
 		vCritical() << "Please make sure x11vnc is installed and installation directory is in PATH!";
-		QThread::msleep( 5000 );
+		return false;
 	}
 	else
 	{
 		x11vnc.waitForFinished( -1 );
 	}
+
+	return true;
 #else
 	cmdline.append( { QStringLiteral("-passwd"), QString::fromUtf8( password.toByteArray() ) } );
 
@@ -139,7 +137,7 @@ void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 	}
 
 	// run x11vnc-server
-	x11vnc_main( argc, argv );
+	const auto result = x11vnc_main( argc, argv );
 
 	for( int i = 0; i < argc; ++i )
 	{
@@ -147,6 +145,8 @@ void BuiltinX11VncServer::runServer( int serverPort, const Password& password )
 	}
 
 	delete[] argv;
+
+	return result == 0;
 #endif
 }
 

@@ -1,7 +1,7 @@
 /*
  * VeyonCore.cpp - implementation of Veyon Core
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -24,14 +24,11 @@
 
 #include <veyonconfig.h>
 
-#include <QLocale>
-#include <QTranslator>
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
 #include <QDir>
 #include <QGroupBox>
-#include <QHostAddress>
 #include <QLabel>
 #include <QProcessEnvironment>
 #include <QSysInfo>
@@ -46,9 +43,10 @@
 #include "NetworkObjectDirectoryManager.h"
 #include "PlatformPluginManager.h"
 #include "PlatformCoreFunctions.h"
-#include "PlatformServiceCore.h"
+#include "PlatformSessionFunctions.h"
 #include "PluginManager.h"
 #include "QmlCore.h"
+#include "TranslationLoader.h"
 #include "UserGroupsBackendManager.h"
 #include "VeyonConfiguration.h"
 #include "VncConnection.h"
@@ -71,7 +69,6 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 	m_builtinFeatures( nullptr ),
 	m_userGroupsBackendManager( nullptr ),
 	m_networkObjectDirectoryManager( nullptr ),
-	m_localComputerControlInterface( nullptr ),
 	m_component( component ),
 	m_applicationName( QStringLiteral( "Veyon" ) ),
 	m_debugging( false )
@@ -85,6 +82,8 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 	initPlatformPlugin();
 
 	initConfiguration();
+
+	initSession();
 
 	initLogging( appComponentName );
 
@@ -100,9 +99,9 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 
 	initManagers();
 
-	initLocalComputerControlInterface();
-
 	initSystemInfo();
+
+	Q_EMIT initialized();
 }
 
 
@@ -121,14 +120,14 @@ VeyonCore::~VeyonCore()
 	delete m_builtinFeatures;
 	m_builtinFeatures = nullptr;
 
+	delete m_logger;
+	m_logger = nullptr;
+
 	delete m_platformPluginManager;
 	m_platformPluginManager = nullptr;
 
 	delete m_pluginManager;
 	m_pluginManager = nullptr;
-
-	delete m_logger;
-	m_logger = nullptr;
 
 	delete m_config;
 	m_config = nullptr;
@@ -187,7 +186,7 @@ QString VeyonCore::translationsDirectory()
 QString VeyonCore::qtTranslationsDirectory()
 {
 #ifdef QT_TRANSLATIONS_DIR
-	return QStringLiteral( QT_TRANSLATIONS_DIR );
+	return QStringLiteral( QT_TRANSLATIONS_DIR ); // clazy:exclude=empty-qstringliteral
 #else
 	return translationsDirectory();
 #endif
@@ -223,20 +222,6 @@ void VeyonCore::setupApplicationParameters()
 	QCoreApplication::setApplicationName( QStringLiteral( "Veyon" ) );
 
 	QApplication::setAttribute( Qt::AA_UseHighDpiPixmaps );
-}
-
-
-
-bool VeyonCore::hasSessionId()
-{
-	return QProcessEnvironment::systemEnvironment().contains( sessionIdEnvironmentVariable() );
-}
-
-
-
-int VeyonCore::sessionId()
-{
-	return QProcessEnvironment::systemEnvironment().value( sessionIdEnvironmentVariable() ).toInt();
 }
 
 
@@ -294,7 +279,7 @@ bool VeyonCore::isDebugging()
 
 
 
-QByteArray VeyonCore::shortenFuncinfo( QByteArray info )
+QByteArray VeyonCore::shortenFuncinfo( const QByteArray& info )
 {
 	const auto funcinfo = cleanupFuncinfo( info );
 
@@ -332,17 +317,17 @@ QByteArray VeyonCore::cleanupFuncinfo( QByteArray info )
 	}
 
 	// operator names with '(', ')', '<', '>' in it
-	static const char operator_call[] = "operator()";
-	static const char operator_lessThan[] = "operator<";
-	static const char operator_greaterThan[] = "operator>";
-	static const char operator_lessThanEqual[] = "operator<=";
-	static const char operator_greaterThanEqual[] = "operator>=";
+	static constexpr std::array<char, 11> operator_call{ "operator()" };
+	static constexpr std::array<char, 10> operator_lessThan{ "operator<" };
+	static constexpr std::array<char, 10> operator_greaterThan{ "operator>" };
+	static constexpr std::array<char, 11> operator_lessThanEqual{ "operator<=" };
+	static constexpr std::array<char, 11> operator_greaterThanEqual{ "operator>=" };
 
 	// canonize operator names
 	info.replace("operator ", "operator");
 
 	// remove argument list
-	forever {
+	Q_FOREVER {
 		int parencount = 0;
 		pos = info.lastIndexOf(')');
 		if (pos == -1) {
@@ -366,7 +351,7 @@ QByteArray VeyonCore::cleanupFuncinfo( QByteArray info )
 		info.truncate(++pos);
 
 		if (info.at(pos - 1) == ')') {
-			if (info.indexOf(operator_call) == pos - (int)strlen(operator_call))
+			if (info.indexOf(operator_call.data()) == pos - int(strlen(operator_call.data())))
 				break;
 
 			// this function returns a pointer to a function
@@ -375,9 +360,8 @@ QByteArray VeyonCore::cleanupFuncinfo( QByteArray info )
 			info.remove(0, info.indexOf('('));
 			info.chop(1);
 			continue;
-		} else {
-			break;
 		}
+		break;
 	}
 
 	// find the beginning of the function name
@@ -389,22 +373,22 @@ QByteArray VeyonCore::cleanupFuncinfo( QByteArray info )
 	if (pos > -1) {
 		switch (info.at(pos)) {
 		case ')':
-			if (info.indexOf(operator_call) == pos - (int)strlen(operator_call) + 1)
+			if (info.indexOf(operator_call.data()) == pos - int(strlen(operator_call.data())) + 1)
 				pos -= 2;
 			break;
 		case '<':
-			if (info.indexOf(operator_lessThan) == pos - (int)strlen(operator_lessThan) + 1)
+			if (info.indexOf(operator_lessThan.data()) == pos - int(strlen(operator_lessThan.data())) + 1)
 				--pos;
 			break;
 		case '>':
-			if (info.indexOf(operator_greaterThan) == pos - (int)strlen(operator_greaterThan) + 1)
+			if (info.indexOf(operator_greaterThan.data()) == pos - int(strlen(operator_greaterThan.data())) + 1)
 				--pos;
 			break;
 		case '=': {
-			int operatorLength = (int)strlen(operator_lessThanEqual);
-			if (info.indexOf(operator_lessThanEqual) == pos - operatorLength + 1)
+			const auto operatorLength = int(strlen(operator_lessThanEqual.data()));
+			if (info.indexOf(operator_lessThanEqual.data()) == pos - operatorLength + 1)
 				pos -= 2;
-			else if (info.indexOf(operator_greaterThanEqual) == pos - operatorLength + 1)
+			else if (info.indexOf(operator_greaterThanEqual.data()) == pos - operatorLength + 1)
 				pos -= 2;
 			break;
 		}
@@ -492,11 +476,11 @@ QString VeyonCore::formattedUuid( QUuid uuid )
 
 int VeyonCore::exec()
 {
-	emit applicationLoaded();
+	Q_EMIT applicationLoaded();
 
 	vDebug() << "Running";
 
-	const auto result = QCoreApplication::instance()->exec();
+	const auto result = QCoreApplication::exec();
 
 	vDebug() << "Exit";
 
@@ -516,6 +500,31 @@ void VeyonCore::initPlatformPlugin()
 	m_platformPlugin = m_platformPluginManager->platformPlugin();
 }
 
+
+
+void VeyonCore::initSession()
+{
+	if( component() != Component::Service && config().multiSessionModeEnabled() )
+	{
+		const auto systemEnv = QProcessEnvironment::systemEnvironment();
+		if( systemEnv.contains( sessionIdEnvironmentVariable() ) )
+		{
+			m_sessionId = systemEnv.value( sessionIdEnvironmentVariable() ).toInt();
+		}
+		else
+		{
+			const auto sessionId = platform().sessionFunctions().currentSessionId();
+			if( sessionId != PlatformSessionFunctions::InvalidSessionId )
+			{
+				m_sessionId = sessionId;
+			}
+		}
+	}
+	else
+	{
+		m_sessionId = PlatformSessionFunctions::DefaultSessionId;
+	}
+}
 
 
 void VeyonCore::initConfiguration()
@@ -538,9 +547,11 @@ void VeyonCore::initConfiguration()
 
 void VeyonCore::initLogging( const QString& appComponentName )
 {
-	if( hasSessionId() )
+	const auto currentSessionId = sessionId();
+
+	if( currentSessionId != PlatformSessionFunctions::DefaultSessionId )
 	{
-		m_logger = new Logger( QStringLiteral("%1-%2").arg( appComponentName ).arg( sessionId() ) );
+		m_logger = new Logger( QStringLiteral("%1-%2").arg( appComponentName ).arg( currentSessionId ) );
 	}
 	else
 	{
@@ -556,40 +567,9 @@ void VeyonCore::initLogging( const QString& appComponentName )
 
 void VeyonCore::initLocaleAndTranslation()
 {
-	QLocale configuredLocale( QLocale::C );
+	TranslationLoader::load( QStringLiteral("qt") );
 
-	QRegExp localeRegEx( QStringLiteral( "[^(]*\\(([^)]*)\\)") );
-	if( localeRegEx.indexIn( config().uiLanguage() ) == 0 )
-	{
-		configuredLocale = QLocale( localeRegEx.cap( 1 ) );
-	}
-
-	if( configuredLocale.language() != QLocale::English )
-	{
-		auto tr = new QTranslator;
-		if( configuredLocale == QLocale::C ||
-			tr->load( QStringLiteral( "%1.qm" ).arg( configuredLocale.name() ), translationsDirectory() ) == false )
-		{
-			configuredLocale = QLocale::system(); // Flawfinder: ignore
-
-			if( tr->load( QStringLiteral( "%1.qm" ).arg( configuredLocale.name() ), translationsDirectory() ) == false )
-			{
-				tr->load( QStringLiteral( "%1.qm" ).arg( configuredLocale.language() ), translationsDirectory() );
-			}
-		}
-
-		QLocale::setDefault( configuredLocale );
-
-		QCoreApplication::installTranslator( tr );
-
-		auto qtTr = new QTranslator;
-		if( qtTr->load( QStringLiteral( "qt_%1.qm" ).arg( configuredLocale.name() ), qtTranslationsDirectory() ) == false )
-		{
-			qtTr->load( QStringLiteral( "qt_%1.qm" ).arg( configuredLocale.language() ), qtTranslationsDirectory() );
-		}
-
-		QCoreApplication::installTranslator( qtTr );
-	}
+	const auto configuredLocale = TranslationLoader::load( QStringLiteral("veyon") );
 
 	if( configuredLocale.language() == QLocale::Hebrew ||
 		configuredLocale.language() == QLocale::Arabic )
@@ -647,17 +627,6 @@ void VeyonCore::initManagers()
 	m_authenticationManager = new AuthenticationManager( this );
 	m_userGroupsBackendManager = new UserGroupsBackendManager( this );
 	m_networkObjectDirectoryManager = new NetworkObjectDirectoryManager( this );
-}
-
-
-
-void VeyonCore::initLocalComputerControlInterface()
-{
-	const Computer localComputer( NetworkObject::Uid::createUuid(),
-								  QStringLiteral("localhost"),
-								  QStringLiteral("%1:%2").arg( QHostAddress( QHostAddress::LocalHost ).toString() ).arg( config().primaryServicePort() + sessionId() ) );
-
-	m_localComputerControlInterface = new ComputerControlInterface( localComputer, this );
 }
 
 

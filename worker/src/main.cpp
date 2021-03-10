@@ -1,7 +1,7 @@
 /*
  * main.cpp - main file for Veyon Feature Worker
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -30,9 +30,9 @@
 int main( int argc, char **argv )
 {
 	QApplication app( argc, argv );
-	app.setWindowIcon( QIcon( QStringLiteral(":/core/icon64.png") ) );
+	QApplication ::setWindowIcon( QIcon( QStringLiteral(":/core/icon64.png") ) );
 
-	const auto arguments = app.arguments();
+	const auto arguments = QApplication::arguments();
 
 	if( arguments.count() < 2 )
 	{

@@ -1,7 +1,7 @@
 /*
  * Filesystem.cpp - filesystem related query and manipulation functions
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -124,6 +124,21 @@ bool Filesystem::ensurePathExists( const QString &path ) const
 	}
 
 	return false;
+}
+
+
+
+QString Filesystem::screenshotDirectoryPath() const
+{
+	return expandPath( VeyonCore::config().screenshotDirectory() );
+}
+
+
+
+QString Filesystem::serviceFilePath() const
+{
+	return QDir::toNativeSeparators( QCoreApplication::applicationDirPath() + QDir::separator() +
+									 QStringLiteral("veyon-service" ) + VeyonCore::executableSuffix() );
 }
 
 

@@ -1,7 +1,7 @@
 /*
  * DesktopServicesFeaturePlugin.h - declaration of DesktopServicesFeaturePlugin class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -39,6 +39,13 @@ class DesktopServicesFeaturePlugin : public QObject, PluginInterface,
 				 FeatureProviderInterface
 				 ConfigurationPagePluginInterface)
 public:
+	enum class Argument
+	{
+		Programs,
+		WebsiteUrl
+	};
+	Q_ENUM(Argument)
+
 	explicit DesktopServicesFeaturePlugin( QObject* parent = nullptr );
 	~DesktopServicesFeaturePlugin() override = default;
 
@@ -77,14 +84,11 @@ public:
 		return m_features;
 	}
 
+	bool controlFeature( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
+						const ComputerControlInterfaceList& computerControlInterfaces ) override;
+
 	bool startFeature( VeyonMasterInterface& master, const Feature& feature,
 					   const ComputerControlInterfaceList& computerControlInterfaces ) override;
-
-	bool stopFeature( VeyonMasterInterface& master, const Feature& feature,
-					  const ComputerControlInterfaceList& computerControlInterfaces ) override;
-
-	bool handleFeatureMessage( VeyonMasterInterface& master, const FeatureMessage& message,
-							   ComputerControlInterface::Pointer computerControlInterface ) override;
 
 	bool handleFeatureMessage( VeyonServerInterface& server,
 							   const MessageContext& messageContext,
@@ -114,11 +118,6 @@ private:
 
 	QString predefinedServicePath( Feature::Uid subFeatureUid ) const;
 
-	enum Arguments {
-		ProgramsArgument,
-		WebsiteUrlArgument
-	};
-
 	DesktopServicesConfiguration m_configuration;
 
 	QJsonArray m_predefinedPrograms;
@@ -127,8 +126,8 @@ private:
 	const Feature m_runProgramFeature;
 	const Feature m_openWebsiteFeature;
 
-	FeatureList m_predefinedProgramsFeatures;
-	FeatureList m_predefinedWebsitesFeatures;
+	FeatureList m_predefinedProgramsFeatures{};
+	FeatureList m_predefinedWebsitesFeatures{};
 
 	FeatureList m_features;
 

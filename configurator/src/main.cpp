@@ -1,7 +1,7 @@
 /*
  * main.cpp - main file for Veyon Configurator
  *
- * Copyright (c) 2010-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2010-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -44,7 +44,7 @@ int main( int argc, char **argv )
 	// make sure to run as admin
 	if( qEnvironmentVariableIntValue( "VEYON_CONFIGURATOR_NO_ELEVATION" ) == 0 &&
 		VeyonCore::platform().coreFunctions().isRunningAsAdmin() == false &&
-		app.arguments().size() <= 1 )
+		QCoreApplication::arguments().size() <= 1 )
 	{
 		if( VeyonCore::platform().coreFunctions().runProgramAsAdmin( QCoreApplication::applicationFilePath(), {
 																	 QStringLiteral("-elevated") } ) )

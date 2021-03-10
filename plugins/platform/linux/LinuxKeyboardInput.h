@@ -1,7 +1,7 @@
 /*
  * LinuxKeyboardInput.h - declaration of LinuxKeyboardInput class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,18 +26,22 @@
 
 #include <QString>
 
-typedef struct FakeKey FakeKey;
-typedef struct _XDisplay Display;
-
-// clazy:excludeall=copyable-polymorphic
+// clazy:excludeall=rule-of-three
 
 class LinuxKeyboardInput
 {
 public:
+	using FakeKey = struct FakeKey;
+	using Display = struct _XDisplay;
+	using KeySym = uint32_t;
+
 	LinuxKeyboardInput();
 	~LinuxKeyboardInput();
 
-	void pressAndReleaseKey( uint32_t keysym );
+	void pressKey( KeySym keysym );
+	void releaseKey( KeySym keysym );
+
+	void pressAndReleaseKey( KeySym keysym );
 
 	void pressAndReleaseKey( const QByteArray& utf8Data );
 

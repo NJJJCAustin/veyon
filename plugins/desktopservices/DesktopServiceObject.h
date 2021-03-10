@@ -1,7 +1,7 @@
 /*
  * DesktopServiceObject.h - data class representing a desktop service object
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -30,6 +30,7 @@
 
 class QJsonObject;
 
+// clazy:excludeall=rule-of-three
 class DesktopServiceObject
 {
 public:

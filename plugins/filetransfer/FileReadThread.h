@@ -1,7 +1,7 @@
 /*
  * FileReadThread.h - declaration of FileReadThread class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -46,16 +46,16 @@ public:
 	int progress();
 
 private:
-	QMutex m_mutex;
-	QThread* m_thread;
-	QFile* m_file;
-	QByteArray m_currentChunk;
+	QMutex m_mutex{};
+	QThread* m_thread{new QThread};
+	QFile* m_file{nullptr};
+	QByteArray m_currentChunk{};
 
-	QTimer* m_timer;
+	QTimer* m_timer{new QTimer};
 
 	QString m_fileName;
-	bool m_chunkReady;
-	qint64 m_filePos;
-	qint64 m_fileSize;
+	bool m_chunkReady{false};
+	qint64 m_filePos{0};
+	qint64 m_fileSize{0};
 
 };

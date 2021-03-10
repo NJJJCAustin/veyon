@@ -1,7 +1,7 @@
 /*
  * AuthKeysManager.cpp - implementation of AuthKeysManager class
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -132,7 +132,7 @@ bool AuthKeysManager::deleteKey( const QString& name, const QString& type )
 
 
 
-bool AuthKeysManager::exportKey( const QString& name, const QString& type, const QString& outputFile )
+bool AuthKeysManager::exportKey( const QString& name, const QString& type, const QString& outputFile, bool overwriteExisting )
 {
 	if( checkKey( name, type ) == false )
 	{
@@ -147,7 +147,7 @@ bool AuthKeysManager::exportKey( const QString& name, const QString& type, const
 		return false;
 	}
 
-	if( QFileInfo::exists( outputFile ) )
+	if( overwriteExisting == false && QFileInfo::exists( outputFile ) )
 	{
 		m_resultMessage = tr( "File \"%1\" already exists." ).arg( outputFile );
 		return false;
@@ -483,7 +483,7 @@ QString AuthKeysManager::keyNameFromExportedKeyFile( const QString& keyFile )
 
 QString AuthKeysManager::privateKeyPath( const QString& name ) const
 {
-	const auto d = VeyonCore::filesystem().expandPath( m_configuration.privateKeyBaseDir() ) +
+	const QString d = VeyonCore::filesystem().expandPath( m_configuration.privateKeyBaseDir() ) +
 			QDir::separator() + name + QDir::separator() + QStringLiteral( "key" );
 
 	return QDir::toNativeSeparators( d );
@@ -493,7 +493,7 @@ QString AuthKeysManager::privateKeyPath( const QString& name ) const
 
 QString AuthKeysManager::publicKeyPath(const QString& name) const
 {
-	const auto d = VeyonCore::filesystem().expandPath( m_configuration.publicKeyBaseDir() ) +
+	const QString d = VeyonCore::filesystem().expandPath( m_configuration.publicKeyBaseDir() ) +
 			QDir::separator() + name + QDir::separator() + QStringLiteral( "key" );
 
 	return QDir::toNativeSeparators( d );
@@ -542,7 +542,8 @@ QString AuthKeysManager::keyFilePathFromType( const QString& name, const QString
 	{
 		return privateKeyPath( name );
 	}
-	else if( type == m_keyTypePublic )
+
+	if( type == m_keyTypePublic )
 	{
 		return publicKeyPath( name );
 	}
@@ -560,7 +561,8 @@ bool AuthKeysManager::setKeyFilePermissions( const QString& name, const QString&
 	{
 		return setPrivateKeyFilePermissions( keyFilePath );
 	}
-	else if( type == m_keyTypePublic )
+
+	if( type == m_keyTypePublic )
 	{
 		return setPublicKeyFilePermissions( keyFilePath );
 	}

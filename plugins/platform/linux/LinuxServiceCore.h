@@ -1,7 +1,7 @@
 /*
  * LinuxServiceCore.h - declaration of LinuxServiceCore class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -24,15 +24,15 @@
 
 #pragma once
 
-#include <QProcessEnvironment>
-
 #include "LinuxCoreFunctions.h"
-#include "PlatformServiceCore.h"
+#include "PlatformSessionManager.h"
 #include "ServiceDataManager.h"
+
+class QProcess;
 
 // clazy:excludeall=copyable-polymorphic
 
-class LinuxServiceCore : public QObject, PlatformServiceCore
+class LinuxServiceCore : public QObject
 {
 	Q_OBJECT
 public:
@@ -41,52 +41,33 @@ public:
 
 	void run();
 
-private slots:
+private Q_SLOTS:
 	void startServer( const QString& login1SessionId, const QDBusObjectPath& sessionObjectPath );
 	void stopServer( const QString& login1SessionId, const QDBusObjectPath& sessionObjectPath );
 
 private:
 	static constexpr auto LoginManagerReconnectInterval = 3000;
+	static constexpr auto ServerShutdownTimeout = 1000;
 	static constexpr auto ServerTerminateTimeout = 3000;
-	static constexpr auto ServerKillTimeout = 10000;
+	static constexpr auto ServerKillTimeout = 3000;
 	static constexpr auto ServerWaitSleepInterval = 100;
 	static constexpr auto SessionEnvironmentProbingInterval = 1000;
+	static constexpr auto SessionStateProbingInterval = 1000;
 	static constexpr auto SessionUptimeSecondsMinimum = 3;
 	static constexpr auto SessionUptimeProbingInterval = 1000;
-
-	using LoginDBusSession = struct {
-		QString id;
-		quint32 uid{0};
-		QString name;
-		QString seatId;
-		QDBusObjectPath path;
-	} ;
-
-	using LoginDBusSessionSeat = struct {
-		QString id;
-		QString path;
-	} ;
 
 	void connectToLoginManager();
 	void stopServer( const QString& sessionPath );
 	void stopAllServers();
 
+	void checkSessionState( const QString& sessionPath );
+
 	QStringList listSessions();
 
-	static QVariant getSessionProperty( const QString& session, const QString& property );
-
-	static int getSessionLeaderPid( const QString& session );
-	static qint64 getSessionUptimeSeconds( const QString& session );
-	static QString getSessionType( const QString& session );
-	static QString getSessionDisplay( const QString& session );
-	static QString getSessionId( const QString& session );
-	static LoginDBusSessionSeat getSessionSeat( const QString& session );
-
-	static QProcessEnvironment getSessionEnvironment( int sessionLeaderPid );
-
-	LinuxCoreFunctions::DBusInterfacePointer m_loginManager;
+	LinuxCoreFunctions::DBusInterfacePointer m_loginManager{LinuxCoreFunctions::systemdLoginManager()};
 	QMap<QString, QProcess *> m_serverProcesses;
 
-	ServiceDataManager m_dataManager;
+	ServiceDataManager m_dataManager{};
+	PlatformSessionManager m_sessionManager{};
 
 };

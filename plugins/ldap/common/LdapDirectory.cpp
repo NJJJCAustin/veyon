@@ -1,7 +1,7 @@
 /*
  * LdapDirectory.cpp - class representing the LDAP directory and providing access to directory entries
  *
- * Copyright (c) 2016-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2016-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -48,9 +48,15 @@ LdapDirectory::LdapDirectory( const LdapConfiguration& configuration, QObject* p
 	m_computerHostNameAsFQDN = m_configuration.computerHostNameAsFQDN();
 	m_computerMacAddressAttribute = m_configuration.computerMacAddressAttribute();
 	m_locationNameAttribute = m_configuration.locationNameAttribute();
+
+	if( m_computerDisplayNameAttribute.isEmpty() )
+	{
+		m_computerDisplayNameAttribute = LdapClient::cn();
+	}
+
 	if( m_locationNameAttribute.isEmpty() )
 	{
-		m_locationNameAttribute = QStringLiteral("cn");
+		m_locationNameAttribute = LdapClient::cn();
 	}
 
 	m_usersFilter = m_configuration.usersFilter();
@@ -64,7 +70,6 @@ LdapDirectory::LdapDirectory( const LdapConfiguration& configuration, QObject* p
 	m_computerLocationsByContainer = m_configuration.computerLocationsByContainer();
 	m_computerLocationsByAttribute = m_configuration.computerLocationsByAttribute();
 	m_computerLocationAttribute = m_configuration.computerLocationAttribute();
-
 }
 
 
@@ -173,7 +178,7 @@ QStringList LdapDirectory::users( const QString& filterValue )
 QStringList LdapDirectory::groups( const QString& filterValue )
 {
 	return m_client.queryDistinguishedNames( groupsDn(),
-											 LdapClient::constructQueryFilter( QStringLiteral( "cn" ), filterValue ),
+											 LdapClient::constructQueryFilter( LdapClient::cn(), filterValue ),
 											 m_defaultSearchScope );
 }
 
@@ -182,7 +187,7 @@ QStringList LdapDirectory::groups( const QString& filterValue )
 QStringList LdapDirectory::userGroups( const QString& filterValue )
 {
 	return m_client.queryDistinguishedNames( groupsDn(),
-											 LdapClient::constructQueryFilter( QStringLiteral( "cn" ), filterValue, m_userGroupsFilter ),
+											 LdapClient::constructQueryFilter( LdapClient::cn(), filterValue, m_userGroupsFilter ),
 											 m_defaultSearchScope );
 }
 
@@ -298,7 +303,8 @@ QStringList LdapDirectory::locationsOfComputer( const QString& computerDn )
 	{
 		return m_client.queryAttributeValues( computerDn, m_computerLocationAttribute );
 	}
-	else if( m_computerLocationsByContainer )
+
+	if( m_computerLocationsByContainer )
 	{
 		return m_client.queryAttributeValues( LdapClient::parentDn( computerDn ), m_locationNameAttribute );
 	}
@@ -320,14 +326,6 @@ QStringList LdapDirectory::locationsOfComputer( const QString& computerDn )
 QString LdapDirectory::userLoginName( const QString& userDn )
 {
 	return m_client.queryAttributeValues( userDn, m_userLoginNameAttribute ).value( 0 );
-}
-
-
-
-QString LdapDirectory::computerDisplayName( const QString& computerDn )
-{
-	return m_client.queryAttributeValues( computerDn, m_computerDisplayNameAttribute ).value( 0 );
-
 }
 
 
@@ -388,7 +386,8 @@ QStringList LdapDirectory::computerLocationEntries( const QString& locationName 
 												 LdapClient::constructQueryFilter( m_computerLocationAttribute, locationName, m_computersFilter ),
 												 m_defaultSearchScope );
 	}
-	else if( m_computerLocationsByContainer )
+
+	if( m_computerLocationsByContainer )
 	{
 		const auto locationDnFilter = LdapClient::constructQueryFilter( m_locationNameAttribute, locationName, m_computerContainersFilter );
 		const auto locationDns = m_client.queryDistinguishedNames( computersDn(), locationDnFilter, m_defaultSearchScope );
@@ -398,15 +397,39 @@ QStringList LdapDirectory::computerLocationEntries( const QString& locationName 
 												 m_defaultSearchScope );
 	}
 
-	auto memberComputers = groupMembers( computerGroups( locationName ).value( 0 ) );
+	const auto groups = computerGroups( locationName );
+	if( groups.size() != 1 )
+	{
+		vWarning() << "location" << locationName << "does not resolve to exactly one computer group:" << groups;
+	}
+
+	if( groups.isEmpty() )
+	{
+		return {};
+	}
+
+	auto memberComputers = groupMembers( groups.value( 0 ) );
 
 	// computer filter configured?
 	if( m_computersFilter.isEmpty() == false )
 	{
+		const auto computerHostNames = computersByHostName();
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+		auto memberComputersSet = QSet<QString>( memberComputers.begin(), memberComputers.end() );
+		const auto computerHostNameSet = QSet<QString>( computerHostNames.begin(), computerHostNames.end() );
+#else
 		auto memberComputersSet = memberComputers.toSet();
+		const auto computerHostNameSet = computersByHostName().toSet();
+#endif
 
 		// then return intersection of filtered computer list and group members
-		return memberComputersSet.intersect( computersByHostName().toSet() ).toList();
+		const auto computerIntersection = memberComputersSet.intersect( computerHostNameSet );
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+		return { computerIntersection.begin(), computerIntersection.end() };
+#else
+		return computerIntersection.toList();
+#endif
 	}
 
 	return memberComputers;

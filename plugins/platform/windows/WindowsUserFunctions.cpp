@@ -1,7 +1,7 @@
 /*
  * WindowsUserFunctions.cpp - implementation of WindowsUserFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -195,6 +195,12 @@ bool WindowsUserFunctions::performLogon( const QString& username, const Password
 	ctrlAltDel();
 
 	QThread::msleep( static_cast<unsigned long>( config.logonInputStartDelay() ) );
+
+	if( config.logonConfirmLegalNotice() )
+	{
+		input.pressAndReleaseKey( XK_Return );
+		QThread::msleep( static_cast<unsigned long>( config.logonInputStartDelay() ) );
+	}
 
 	input.pressAndReleaseKey( XK_Delete );
 

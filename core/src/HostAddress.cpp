@@ -1,7 +1,7 @@
 /*
  * HostAddress.cpp - implementation of HostAddress class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -24,6 +24,7 @@
 
 #include <QHostInfo>
 #include <QNetworkInterface>
+#include <QUrl>
 
 #include "HostAddress.h"
 
@@ -99,6 +100,59 @@ QString HostAddress::tryConvert( HostAddress::Type targetType ) const
 
 
 
+QStringList HostAddress::lookupIpAddresses() const
+{
+	const auto hostName = convert( Type::FullyQualifiedDomainName );
+	const auto hostInfo = QHostInfo::fromName( hostName );
+	if( hostInfo.error() != QHostInfo::NoError || hostInfo.addresses().isEmpty() )
+	{
+		vWarning() << "could not lookup IP addresses of host" << hostName << "error:" << hostInfo.errorString();
+		return {};
+	}
+
+	QStringList ipAddresses;
+
+	const auto addresses = hostInfo.addresses();
+	ipAddresses.reserve( addresses.size() );
+
+	for( const auto& address : addresses )
+	{
+		ipAddresses.append( address.toString() );
+	}
+
+	return ipAddresses;
+}
+
+
+static QUrl parseAddressToUrl( const QString& address )
+{
+	const auto colonCount = address.count( QLatin1Char(':') );
+	if( colonCount > 1 )
+	{
+		const auto parts = address.split( QLatin1Char(':') );
+		return QUrl( QStringLiteral("scheme://[%1]:%2").arg( parts.mid( 0, colonCount ).join( QLatin1Char(':') ),
+															   parts.last() ) );
+	}
+
+	return QUrl( QStringLiteral("scheme://%1").arg( address ) );
+}
+
+
+
+QString HostAddress::parseHost( const QString& address )
+{
+	return parseAddressToUrl( address ).host();
+}
+
+
+
+int HostAddress::parsePortNumber( const QString& address )
+{
+	return parseAddressToUrl( address ).port();
+}
+
+
+
 QString HostAddress::localFQDN()
 {
 	const auto localHostName = QHostInfo::localHostName();
@@ -107,18 +161,20 @@ QString HostAddress::localFQDN()
 	switch( type )
 	{
 	case Type::HostName:
-		return localHostName + QStringLiteral( "." ) + QHostInfo::localDomainName();
+		if( QHostInfo::localDomainName().isEmpty() == false )
+		{
+			return localHostName + QStringLiteral( "." ) + QHostInfo::localDomainName();
+		}
 
 	case Type::FullyQualifiedDomainName:
 		return localHostName;
 
 	default:
+		vWarning() << "Could not determine local host name:" << localHostName;
 		break;
 	}
 
-	vWarning() << "Could not determine local host name:" << localHostName;
-
-	return HostAddress( localHostName ).convert( Type::FullyQualifiedDomainName );
+	return HostAddress( localHostName ).tryConvert( Type::FullyQualifiedDomainName );
 }
 
 
@@ -197,8 +253,10 @@ QString HostAddress::toHostName( HostAddress::Type type, const QString& address 
 		return fqdnToHostName( hostInfo.hostName() );
 	}
 
-	case Type::Invalid:
 	case Type::HostName:
+		return address;
+
+	case Type::Invalid:
 		break;
 	}
 
@@ -231,8 +289,10 @@ QString HostAddress::toFQDN( HostAddress::Type type, const QString& address )
 		return hostInfo.hostName();
 	}
 
-	case Type::Invalid:
 	case Type::FullyQualifiedDomainName:
+		return address;
+
+	case Type::Invalid:
 		break;
 	}
 

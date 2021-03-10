@@ -1,7 +1,7 @@
 /*
  * LdapConfiguration.h - LDAP-specific configuration values
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -48,11 +48,11 @@
 	OP( LdapConfiguration, m_configuration, bool, recursiveSearchOperations, setRecursiveSearchOperations, "RecursiveSearchOperations", "LDAP", false, Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, userLoginNameAttribute, setUserLoginNameAttribute, "UserLoginNameAttribute", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, groupMemberAttribute, setGroupMemberAttribute, "GroupMemberAttribute", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
-	OP( LdapConfiguration, m_configuration, QString, computerDisplayNameAttribute, setComputerDisplayNameAttribute, "ComputerDisplayNameAttribute", "LDAP", QStringLiteral("cn"), Configuration::Property::Flag::Standard )	\
+	OP( LdapConfiguration, m_configuration, QString, computerDisplayNameAttribute, setComputerDisplayNameAttribute, "ComputerDisplayNameAttribute", "LDAP", LdapClient::cn(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, computerHostNameAttribute, setComputerHostNameAttribute, "ComputerHostNameAttribute", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, bool, computerHostNameAsFQDN, setComputerHostNameAsFQDN, "ComputerHostNameAsFQDN", "LDAP", false, Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, computerMacAddressAttribute, setComputerMacAddressAttribute, "ComputerMacAddressAttribute", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
-	OP( LdapConfiguration, m_configuration, QString, locationNameAttribute, setLocationNameAttribute, "LocationNameAttribute", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
+	OP( LdapConfiguration, m_configuration, QString, locationNameAttribute, setLocationNameAttribute, "LocationNameAttribute", "LDAP", LdapClient::cn(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, usersFilter, setUsersFilter, "UsersFilter", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, userGroupsFilter, setUserGroupsFilter, "UserGroupsFilter", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
 	OP( LdapConfiguration, m_configuration, QString, computersFilter, setComputersFilter, "ComputersFilter", "LDAP", QString(), Configuration::Property::Flag::Standard )	\
@@ -73,5 +73,7 @@
 #define FOREACH_LDAP_PROXIES_CONFIG_PROPERTY(OP) \
 	FOREACH_LDAP_CONFIG_PROPERTY(OP) \
 	FOREACH_LDAP_LEGACY_CONFIG_PROPERTY(OP)
+
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(LDAP_COMMON_EXPORT LdapConfiguration, FOREACH_LDAP_PROXIES_CONFIG_PROPERTY)

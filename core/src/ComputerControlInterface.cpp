@@ -1,7 +1,7 @@
 /*
  * ComputerControlInterface.cpp - interface class for controlling a computer
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -85,13 +85,15 @@ void ComputerControlInterface::start( QSize scaledScreenSize, UpdateMode updateM
 
 		connect( m_vncConnection, &VncConnection::imageUpdated, this, [this]( int x, int y, int w, int h )
 		{
-			emit screenUpdated( QRect( x, y, w, h ) );
+			Q_EMIT screenUpdated( QRect( x, y, w, h ) );
 		} );
 		connect( m_vncConnection, &VncConnection::framebufferUpdateComplete, this, [this]() {
 			resetWatchdog();
 			++m_timestamp;
-			emit scaledScreenUpdated();
+			Q_EMIT scaledScreenUpdated();
 		} );
+
+		connect( m_vncConnection, &VncConnection::framebufferSizeChanged, this, &ComputerControlInterface::screenSizeChanged );
 
 		connect( m_vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateState );
 		connect( m_vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateUser );
@@ -111,11 +113,8 @@ void ComputerControlInterface::start( QSize scaledScreenSize, UpdateMode updateM
 
 void ComputerControlInterface::stop()
 {
-	if( m_connection )
-	{
-		delete m_connection;
-		m_connection = nullptr;
-	}
+	// VeyonConnection destroys itself when VncConnection is destroyed
+	m_connection = nullptr;
 
 	if( m_vncConnection )
 	{
@@ -133,6 +132,20 @@ void ComputerControlInterface::stop()
 
 
 
+bool ComputerControlInterface::hasValidFramebuffer() const
+{
+	return m_vncConnection->hasValidFramebuffer();
+}
+
+
+
+QSize ComputerControlInterface::screenSize() const
+{
+	return m_vncConnection->image().size();
+}
+
+
+
 void ComputerControlInterface::setScaledScreenSize( QSize scaledScreenSize )
 {
 	m_scaledScreenSize = scaledScreenSize;
@@ -144,7 +157,7 @@ void ComputerControlInterface::setScaledScreenSize( QSize scaledScreenSize )
 
 	++m_timestamp;
 
-	emit scaledScreenUpdated();
+	Q_EMIT scaledScreenUpdated();
 }
 
 
@@ -173,25 +186,17 @@ QImage ComputerControlInterface::screen() const
 
 
 
-void ComputerControlInterface::setUserLoginName( const QString& userLoginName )
+void ComputerControlInterface::setUserInformation( const QString& userLoginName, const QString& userFullName, int sessionId )
 {
-	if( userLoginName != m_userLoginName )
+	if( userLoginName != m_userLoginName ||
+		userFullName != m_userFullName ||
+		sessionId != m_userSessionId )
 	{
 		m_userLoginName = userLoginName;
-
-		emit userChanged();
-	}
-}
-
-
-
-void ComputerControlInterface::setUserFullName( const QString& userFullName )
-{
-	if( userFullName != m_userFullName )
-	{
 		m_userFullName = userFullName;
+		m_userSessionId = sessionId;
 
-		emit userChanged();
+		Q_EMIT userChanged();
 	}
 }
 
@@ -203,17 +208,26 @@ void ComputerControlInterface::setActiveFeatures( const FeatureUidList& activeFe
 	{
 		m_activeFeatures = activeFeatures;
 
-		emit activeFeaturesChanged();
+		Q_EMIT activeFeaturesChanged();
 	}
 }
 
 
 
-void ComputerControlInterface::setDesignatedModeFeature( Feature::Uid designatedModeFeature )
+void ComputerControlInterface::updateActiveFeatures()
 {
-	m_designatedModeFeature = designatedModeFeature;
+	lock();
 
-	updateActiveFeatures();
+	if( m_vncConnection && m_connection && state() == State::Connected )
+	{
+		VeyonCore::builtinFeatures().featureControl().queryActiveFeatures( { weakPointer() } );
+	}
+	else
+	{
+		setActiveFeatures( {} );
+	}
+
+	unlock();
 }
 
 
@@ -305,6 +319,8 @@ void ComputerControlInterface::restartConnection()
 
 void ComputerControlInterface::updateState()
 {
+	lock();
+
 	if( m_vncConnection )
 	{
 		switch( m_vncConnection->state() )
@@ -313,7 +329,7 @@ void ComputerControlInterface::updateState()
 		case VncConnection::State::Connecting: m_state = State::Connecting; break;
 		case VncConnection::State::Connected: m_state = State::Connected; break;
 		case VncConnection::State::HostOffline: m_state = State::HostOffline; break;
-		case VncConnection::State::ServiceUnreachable: m_state = State::ServiceUnreachable; break;
+		case VncConnection::State::ServerNotRunning: m_state = State::ServerNotRunning; break;
 		case VncConnection::State::AuthenticationFailed: m_state = State::AuthenticationFailed; break;
 		default: m_state = VncConnection::State::Disconnected; break;
 		}
@@ -322,12 +338,16 @@ void ComputerControlInterface::updateState()
 	{
 		m_state = State::Disconnected;
 	}
+
+	unlock();
 }
 
 
 
 void ComputerControlInterface::updateUser()
 {
+	lock();
+
 	if( m_vncConnection && m_connection && state() == State::Connected )
 	{
 		if( userLoginName().isEmpty() )
@@ -337,28 +357,15 @@ void ComputerControlInterface::updateUser()
 	}
 	else
 	{
-		setUserLoginName( {} );
-		setUserFullName( {} );
+		setUserInformation( {}, {}, -1 );
 	}
-}
 
-
-
-void ComputerControlInterface::updateActiveFeatures()
-{
-	if( m_vncConnection && m_connection && state() == State::Connected )
-	{
-		VeyonCore::builtinFeatures().featureControl().queryActiveFeatures( { weakPointer() } );
-	}
-	else
-	{
-		setActiveFeatures( {} );
-	}
+	unlock();
 }
 
 
 
 void ComputerControlInterface::handleFeatureMessage( const FeatureMessage& message )
 {
-	emit featureMessageReceived( message, weakPointer() );
+	Q_EMIT featureMessageReceived( message, weakPointer() );
 }

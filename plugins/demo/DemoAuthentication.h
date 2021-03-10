@@ -1,7 +1,7 @@
 /*
  * DemoAuthentication.h - declaration of DemoAuthentication class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,27 +26,30 @@
 
 #include "AuthenticationPluginInterface.h"
 
+// clazy:excludeall=copyable-polymorphic
+
 class DemoAuthentication : public AuthenticationPluginInterface
 {
 public:
 	using AccessToken = CryptoCore::PlaintextPassword;
 
-	explicit DemoAuthentication( const Plugin::Uid& pluginUid );
+	explicit DemoAuthentication( Plugin::Uid pluginUid );
 	~DemoAuthentication() override = default;
 
-	QString authenticationTypeName() const override
+	QString authenticationMethodName() const override
 	{
 		return {};
+	}
+
+	QWidget* createAuthenticationConfigurationWidget() override
+	{
+		return nullptr;
 	}
 
 	bool initializeCredentials() override;
 	bool hasCredentials() const override;
 
 	bool checkCredentials() const override;
-
-	void configureCredentials() override
-	{
-	}
 
 	VncServerClient::AuthState performAuthentication( VncServerClient* client, VariantArrayMessage& message ) const override;
 
@@ -73,7 +76,7 @@ public:
 	}
 
 private:
-	AccessToken m_accessToken;
-	Plugin::Uid m_pluginUid;
+	AccessToken m_accessToken{};
+	const Plugin::Uid m_pluginUid;
 
 };

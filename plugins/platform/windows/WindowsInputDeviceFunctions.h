@@ -1,7 +1,7 @@
 /*
  * WindowsInputDeviceFunctions.h - declaration of WindowsInputDeviceFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -34,12 +34,14 @@ class WindowsInputDeviceFunctions : public PlatformInputDeviceFunctions
 {
 public:
 	WindowsInputDeviceFunctions();
-	virtual ~WindowsInputDeviceFunctions();
+	~WindowsInputDeviceFunctions() override;
 
 	void enableInputDevices() override;
 	void disableInputDevices() override;
 
 	KeyboardShortcutTrapper* createKeyboardShortcutTrapper( QObject* parent ) override;
+
+	void synthesizeKeyEvent( KeySym keySym, bool down ) override;
 
 	static void checkInterceptionInstallation();
 

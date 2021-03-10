@@ -1,7 +1,7 @@
 /*
  * PluginManager.cpp - implementation of the PluginManager class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -33,9 +33,6 @@
 
 PluginManager::PluginManager( QObject* parent ) :
 	QObject( parent ),
-	m_pluginInterfaces(),
-	m_pluginObjects(),
-	m_pluginLoaders(),
 	m_noDebugMessages( qEnvironmentVariableIsSet( Logger::logLevelEnvironmentVariable() ) )
 {
 	initPluginSearchPath();
@@ -68,8 +65,6 @@ void PluginManager::loadPlatformPlugins()
 void PluginManager::loadPlugins()
 {
 	loadPlugins( QStringLiteral("*") + VeyonCore::sharedLibrarySuffix() );
-
-	emit pluginsLoaded();
 }
 
 

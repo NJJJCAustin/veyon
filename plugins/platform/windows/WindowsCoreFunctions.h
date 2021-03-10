@@ -1,7 +1,7 @@
 /*
  * WindowsCoreFunctions.h - declaration of WindowsCoreFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -48,7 +48,7 @@ public:
 	void reboot() override;
 	void powerDown( bool installUpdates ) override;
 
-	void raiseWindow( QWidget* widget ) override;
+	void raiseWindow( QWidget* widget, bool stayOnTop ) override;
 
 	void disableScreenSaver() override;
 	void restoreScreenSaverSettings() override;
@@ -77,8 +77,6 @@ public:
 									   const QStringList& extraEnvironment,
 									   DWORD baseProcessId,
 									   const QString& desktop );
-
-	static QStringList sessionIdEnvironment();
 
 	static bool terminateProcess( ProcessId processId, DWORD timeout = DefaultProcessTerminationTimeout );
 

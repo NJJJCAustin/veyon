@@ -1,7 +1,7 @@
 /*
  * VeyonConnection.cpp - implementation of VeyonConnection
  *
- * Copyright (c) 2008-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2008-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -34,7 +34,7 @@
 
 
 static rfbClientProtocolExtension* __veyonProtocolExt = nullptr;
-static const uint32_t __veyonSecurityTypes[2] = { VeyonCore::RfbSecurityTypeVeyon, 0 };
+static constexpr std::array<uint32_t, 2> __veyonSecurityTypes = { VeyonCore::RfbSecurityTypeVeyon, 0 };
 
 
 rfbBool handleVeyonMessage( rfbClient* client, rfbServerToClientMsg* msg )
@@ -61,13 +61,14 @@ VeyonConnection::VeyonConnection( VncConnection* vncConnection ):
 		__veyonProtocolExt->encodings = nullptr;
 		__veyonProtocolExt->handleEncoding = nullptr;
 		__veyonProtocolExt->handleMessage = handleVeyonMessage;
-		__veyonProtocolExt->securityTypes = __veyonSecurityTypes;
+		__veyonProtocolExt->securityTypes = __veyonSecurityTypes.data();
 		__veyonProtocolExt->handleAuthentication = handleSecTypeVeyon;
 
 		rfbClientRegisterExtension( __veyonProtocolExt );
 	}
 
 	connect( m_vncConnection, &VncConnection::connectionPrepared, this, &VeyonConnection::registerConnection, Qt::DirectConnection );
+	connect( m_vncConnection, &VncConnection::destroyed, this, &VeyonConnection::deleteLater );
 }
 
 
@@ -108,15 +109,13 @@ bool VeyonConnection::handleServerMessage( rfbClient* client, uint8_t msg )
 		vDebug() << "received feature message" << featureMessage.command()
 			   << "with arguments" << featureMessage.arguments();
 
-		emit featureMessageReceived( featureMessage );
+		Q_EMIT featureMessageReceived( featureMessage );
 
 		return true;
 	}
-	else
-	{
-		vCritical() << "unknown message type" << static_cast<int>( msg )
-					<< "from server. Closing connection. Will re-open it later.";
-	}
+
+	vCritical() << "unknown message type" << int( msg )
+				<< "from server. Closing connection. Will re-open it later.";
 
 	return false;
 }

@@ -1,7 +1,7 @@
 /*
  * LinuxInputDeviceFunctions.h - declaration of LinuxInputDeviceFunctions class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -26,28 +26,34 @@
 
 #include "PlatformInputDeviceFunctions.h"
 
+class LinuxKeyboardInput;
+
 // clazy:excludeall=copyable-polymorphic
 
 class LinuxInputDeviceFunctions : public PlatformInputDeviceFunctions
 {
 public:
-	LinuxInputDeviceFunctions();
-	virtual ~LinuxInputDeviceFunctions() = default;
+	LinuxInputDeviceFunctions() = default;
+	~LinuxInputDeviceFunctions() override;
 
 	void enableInputDevices() override;
 	void disableInputDevices() override;
 
 	KeyboardShortcutTrapper* createKeyboardShortcutTrapper( QObject* parent ) override;
 
+	void synthesizeKeyEvent( KeySym keySym, bool down ) override;
+
 private:
 	void setEmptyKeyMapTable();
 	void restoreKeyMapTable();
 
-	bool m_inputDevicesDisabled;
-	void* m_origKeyTable;
-	int m_keyCodeMin;
-	int m_keyCodeMax;
-	int m_keyCodeCount;
-	int m_keySymsPerKeyCode;
+	bool m_inputDevicesDisabled{false};
+	void* m_origKeyTable{nullptr};
+	int m_keyCodeMin{0};
+	int m_keyCodeMax{0};
+	int m_keyCodeCount{0};
+	int m_keySymsPerKeyCode{0};
+
+	LinuxKeyboardInput* m_keyboardInput{nullptr};
 
 };

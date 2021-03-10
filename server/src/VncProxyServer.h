@@ -1,7 +1,7 @@
 /*
  * VncProxyServer.h - a VNC proxy implementation for intercepting VNC connections
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -54,12 +54,16 @@ public:
 		return m_connections;
 	}
 
+Q_SIGNALS:
+	void connectionClosed( VncProxyConnection* connection );
+
 private:
 	void acceptConnection();
 	void closeConnection( VncProxyConnection* );
+	void handleAcceptError( QAbstractSocket::SocketError socketError );
 
-	int m_vncServerPort;
-	Password m_vncServerPassword;
+	int m_vncServerPort{-1};
+	Password m_vncServerPassword{};
 	QHostAddress m_listenAddress;
 	int m_listenPort;
 	QTcpServer* m_server;

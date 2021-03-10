@@ -1,7 +1,7 @@
 /*
  * CheckableItemProxyModel.cpp - proxy model for overlaying checked property
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -31,9 +31,7 @@
 
 CheckableItemProxyModel::CheckableItemProxyModel( int uidRole, QObject *parent ) :
 	QIdentityProxyModel(parent),
-	m_uidRole( uidRole ),
-	m_exceptionRole( -1 ),
-	m_exceptionData()
+	m_uidRole( uidRole )
 {
 	connect( this, &QIdentityProxyModel::rowsInserted,
 			 this, &CheckableItemProxyModel::updateNewRows );
@@ -103,7 +101,7 @@ bool CheckableItemProxyModel::setData( const QModelIndex& index, const QVariant&
 	if( qAsConst(m_checkStates)[uuid] != checkState )
 	{
 		m_checkStates[uuid] = checkState;
-		emit dataChanged( index, index, { Qt::CheckStateRole } );
+		Q_EMIT dataChanged( index, index, { Qt::CheckStateRole } );
 
 		setChildData( index, checkState );
 		setParentData( index.parent(), checkState );
@@ -164,7 +162,7 @@ void CheckableItemProxyModel::loadStates( const QJsonArray& data )
 	for( const auto& item : data )
 	{
 		const QUuid uid = QUuid( item.toString() );
-		const auto indexList = match( index( 0, 0 ), m_uidRole, uid, 1,
+		const auto indexList = match( index( 0, 0 ), m_uidRole, uid, 1, // clazy:exclude=inefficient-qlist
 									  Qt::MatchExactly | Qt::MatchRecursive );
 		if( indexList.isEmpty() == false &&
 				hasChildren( indexList.first() ) == false )
@@ -217,7 +215,7 @@ bool CheckableItemProxyModel::setChildData( const QModelIndex& index, Qt::CheckS
 
 		if( modified )
 		{
-			emit dataChanged( this->index( 0, 0, index ), this->index( childCount-1, 0, index ), { Qt::CheckStateRole } );
+			Q_EMIT dataChanged( this->index( 0, 0, index ), this->index( childCount-1, 0, index ), { Qt::CheckStateRole } );
 		}
 	}
 
@@ -249,7 +247,7 @@ void CheckableItemProxyModel::setParentData( const QModelIndex& index, Qt::Check
 	if( qAsConst(m_checkStates)[uuid] != checkState )
 	{
 		m_checkStates[uuid] = checkState;
-		emit dataChanged( index, index, { Qt::CheckStateRole } );
+		Q_EMIT dataChanged( index, index, { Qt::CheckStateRole } );
 
 		setParentData( index.parent(), checkState );
 	}

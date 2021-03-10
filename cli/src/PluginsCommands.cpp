@@ -1,7 +1,7 @@
 /*
  * PluginsCommands.cpp - implementation of PluginsCommands class
  *
- * Copyright (c) 2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2019-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -56,7 +56,8 @@ CommandLinePluginInterface::RunResult PluginsCommands::handle_list( const QStrin
 {
 	Q_UNUSED(arguments)
 
-	for( auto plugin : VeyonCore::pluginManager().pluginInterfaces() )
+	const auto plugins = VeyonCore::pluginManager().pluginInterfaces();
+	for( auto plugin : plugins )
 	{
 		print( plugin->name() );
 	}
@@ -70,12 +71,13 @@ CommandLinePluginInterface::RunResult PluginsCommands::handle_show( const QStrin
 {
 	Q_UNUSED(arguments)
 
+	const auto plugins = VeyonCore::pluginManager().pluginInterfaces();
+
 	TableHeader tableHeader( { tr("Name"), tr("Description"), tr("Version"), tr("UID") } );
 	TableRows tableRows;
+	tableRows.reserve( plugins.count() );
 
-	tableRows.reserve( VeyonCore::pluginManager().pluginInterfaces().count() );
-
-	for( auto plugin : VeyonCore::pluginManager().pluginInterfaces() )
+	for( auto plugin : plugins )
 	{
 		tableRows.append( {
 			plugin->name(),

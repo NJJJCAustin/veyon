@@ -1,7 +1,7 @@
 /*
  * ComputerControlServer.h - header file for ComputerControlServer
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -69,16 +69,23 @@ public:
 		return m_featureWorkerManager;
 	}
 
+	int vncServerBasePort() const override
+	{
+		return m_vncServer.serverBasePort();
+	}
 
 private:
+	void checkForIncompleteAuthentication( VncServerClient* client );
 	void showAuthenticationMessage( VncServerClient* client );
 	void showAccessControlMessage( VncServerClient* client );
 
-	QMutex m_dataMutex;
-	QStringList m_allowedIPs;
+	void updateTrayIconToolTip();
 
-	QStringList m_failedAuthHosts;
-	QStringList m_failedAccessControlHosts;
+	QMutex m_dataMutex{};
+	QStringList m_allowedIPs{};
+
+	QStringList m_failedAuthHosts{};
+	QStringList m_failedAccessControlHosts{};
 
 	FeatureManager m_featureManager;
 	FeatureWorkerManager m_featureWorkerManager;
@@ -86,7 +93,7 @@ private:
 	ServerAuthenticationManager m_serverAuthenticationManager;
 	ServerAccessControlManager m_serverAccessControlManager;
 
-	VncServer m_vncServer;
+	VncServer m_vncServer{};
 	VncProxyServer m_vncProxyServer;
 
 } ;

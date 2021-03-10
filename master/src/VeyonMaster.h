@@ -1,7 +1,7 @@
 /*
  * VeyonMaster.h - global instances
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -97,6 +97,9 @@ public:
 	}
 
 	FeatureList subFeatures( Feature::Uid parentFeatureUid ) const;
+	FeatureUidList subFeaturesUids( Feature::Uid parentFeatureUid ) const;
+
+	FeatureList modeFeatures() const;
 
 	const Feature::Uid& currentMode() const
 	{
@@ -118,14 +121,21 @@ public:
 	Configuration::Object* userConfigurationObject() override;
 	void reloadSubFeatures() override;
 
+	ComputerControlInterface& localSessionControlInterface() override
+	{
+		return m_localSessionControlInterface;
+	}
+
+	ComputerControlInterfaceList selectedComputerControlInterfaces() const override;
+
 	ComputerControlInterfaceList filteredComputerControlInterfaces();
 
-public slots:
+public Q_SLOTS:
 	void runFeature( const Feature& feature );
 	void enforceDesignatedMode( const QModelIndex& index );
 	void stopAllModeFeatures( const ComputerControlInterfaceList& computerControlInterfaces );
 
-signals:
+Q_SIGNALS:
 	void appWindowChanged();
 	void appContainerChanged();
 
@@ -145,6 +155,8 @@ private:
 	ComputerControlListModel* m_computerControlListModel;
 	ComputerMonitoringModel* m_computerMonitoringModel;
 	ComputerSelectModel* m_computerSelectModel;
+
+	ComputerControlInterface m_localSessionControlInterface;
 
 	MainWindow* m_mainWindow{nullptr};
 	QQmlApplicationEngine* m_qmlAppEngine{nullptr};

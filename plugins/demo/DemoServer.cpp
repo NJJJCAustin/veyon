@@ -2,7 +2,7 @@
  * DemoServer.cpp - multi-threaded slim VNC-server for demo-purposes (optimized
  *                   for lot of clients accessing server in read-only-mode)
  *
- * Copyright (c) 2006-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2006-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -25,7 +25,6 @@
 
 #include "rfb/rfbproto.h"
 
-#include <QTcpServer>
 #include <QTcpSocket>
 
 #include "DemoConfiguration.h"
@@ -36,29 +35,22 @@
 
 
 DemoServer::DemoServer( int vncServerPort, const Password& vncServerPassword, const DemoAuthentication& authentication,
-						const DemoConfiguration& configuration, QObject *parent ) :
-	QObject( parent ),
+						const DemoConfiguration& configuration, int demoServerPort, QObject *parent ) :
+	QTcpServer( parent ),
 	m_authentication( authentication ),
 	m_configuration( configuration ),
 	m_memoryLimit( m_configuration.memoryLimit() * 1024*1024 ),
 	m_keyFrameInterval( m_configuration.keyFrameInterval() * 1000 ),
 	m_vncServerPort( vncServerPort ),
-	m_tcpServer( new QTcpServer( this ) ),
 	m_vncServerSocket( new QTcpSocket( this ) ),
-	m_vncClientProtocol( new VncClientProtocol( m_vncServerSocket, vncServerPassword ) ),
-	m_framebufferUpdateTimer( this ),
-	m_lastFullFramebufferUpdate(),
-	m_requestFullFramebufferUpdate( false ),
-	m_keyFrame( 0 )
+	m_vncClientProtocol( new VncClientProtocol( m_vncServerSocket, vncServerPassword ) )
 {
-	connect( m_tcpServer, &QTcpServer::newConnection, this, &DemoServer::acceptPendingConnections );
-
 	connect( m_vncServerSocket, &QTcpSocket::readyRead, this, &DemoServer::readFromVncServer );
 	connect( m_vncServerSocket, &QTcpSocket::disconnected, this, &DemoServer::reconnectToVncServer );
 
 	connect( &m_framebufferUpdateTimer, &QTimer::timeout, this, &DemoServer::requestFramebufferUpdate );
 
-	if( m_tcpServer->listen( QHostAddress::Any, static_cast<quint16>( VeyonCore::config().demoServerPort() ) ) == false )
+	if( listen( QHostAddress::Any, demoServerPort ) == false )
 	{
 		vCritical() << "could not listen on demo server port";
 		return;
@@ -73,28 +65,35 @@ DemoServer::DemoServer( int vncServerPort, const Password& vncServerPassword, co
 
 DemoServer::~DemoServer()
 {
-	vDebug() << "disconnecting signals";
-	m_vncServerSocket->disconnect( this );
-	m_tcpServer->disconnect( this );
-
-	vDebug() << "deleting connections";
-
-	QList<DemoServerConnection *> l;
-	while( !( l = findChildren<DemoServerConnection *>() ).isEmpty() )
-	{
-		delete l.front();
-	}
-
-	vDebug() << "deleting server socket";
-	delete m_vncServerSocket;
-
-	vDebug() << "deleting TCP server";
-	delete m_tcpServer;
-
-	vDebug() << "deleting VNC client protocol";
 	delete m_vncClientProtocol;
+	delete m_vncServerSocket;
+}
 
-	vDebug() << "finished";
+
+
+void DemoServer::terminate()
+{
+	m_vncServerSocket->disconnect( this );
+
+	const auto connections = findChildren<DemoServerConnection *>();
+	if( connections.isEmpty() )
+	{
+		deleteLater();
+	}
+	else
+	{
+		for( auto connection : connections )
+		{
+			connection->quit();
+		}
+
+		for( auto connection : connections )
+		{
+			connection->wait( ConnectionThreadWaitTime );
+		}
+
+		QTimer::singleShot( TerminateRetryInterval, 0, &DemoServer::terminate );
+	}
 }
 
 
@@ -122,16 +121,25 @@ void DemoServer::lockDataForRead()
 
 
 
+void DemoServer::incomingConnection( qintptr socketDescriptor )
+{
+	vDebug() << socketDescriptor;
+
+	m_pendingConnections.append( socketDescriptor );
+
+	if( m_vncClientProtocol->state() == VncClientProtocol::State::Running )
+	{
+		acceptPendingConnections();
+	}
+}
+
+
+
 void DemoServer::acceptPendingConnections()
 {
-	if( m_vncClientProtocol->state() != VncClientProtocol::Running )
+	while( m_pendingConnections.isEmpty() == false )
 	{
-		return;
-	}
-
-	while( m_tcpServer->hasPendingConnections() )
-	{
-		new DemoServerConnection( m_authentication, m_tcpServer->nextPendingConnection(), this );
+		new DemoServerConnection( this, m_authentication, m_pendingConnections.takeFirst() );
 	}
 }
 
@@ -148,13 +156,13 @@ void DemoServer::reconnectToVncServer()
 
 void DemoServer::readFromVncServer()
 {
-	if( m_vncClientProtocol->state() != VncClientProtocol::Running )
+	if( m_vncClientProtocol->state() != VncClientProtocol::State::Running )
 	{
 		while( m_vncClientProtocol->read() )
 		{
 		}
 
-		if( m_vncClientProtocol->state() == VncClientProtocol::Running )
+		if( m_vncClientProtocol->state() == VncClientProtocol::State::Running )
 		{
 			start();
 		}
@@ -171,7 +179,7 @@ void DemoServer::readFromVncServer()
 
 void DemoServer::requestFramebufferUpdate()
 {
-	if( m_vncClientProtocol->state() != VncClientProtocol::Running )
+	if( m_vncClientProtocol->state() != VncClientProtocol::State::Running )
 	{
 		return;
 	}
@@ -278,6 +286,8 @@ qint64 DemoServer::framebufferUpdateMessageQueueSize() const
 
 void DemoServer::start()
 {
+	vDebug();
+
 	setVncServerPixelFormat();
 	setVncServerEncodings();
 

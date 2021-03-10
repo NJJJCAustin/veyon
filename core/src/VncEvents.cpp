@@ -1,7 +1,7 @@
 /*
  * VncEvents.cpp - implementation of VNC event classes
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -41,7 +41,7 @@ void VncKeyEvent::fire( rfbClient* client )
 
 
 
-VncPointerEvent::VncPointerEvent(int x, int y, int buttonMask) :
+VncPointerEvent::VncPointerEvent(int x, int y, uint buttonMask) :
 	m_x( x ),
 	m_y( y ),
 	m_buttonMask( buttonMask )
@@ -52,7 +52,7 @@ VncPointerEvent::VncPointerEvent(int x, int y, int buttonMask) :
 
 void VncPointerEvent::fire(rfbClient *client)
 {
-	SendPointerEvent( client, m_x, m_y, m_buttonMask );
+	SendPointerEvent( client, m_x, m_y, int(m_buttonMask) );
 }
 
 

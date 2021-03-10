@@ -1,7 +1,7 @@
 /*
  * VncClientProtocol.cpp - implementation of the VncClientProtocol class
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -25,7 +25,7 @@
 extern "C"
 {
 #include "rfb/rfbproto.h"
-#include "common/d3des.h"
+#include "d3des.h"
 }
 
 #include <QBuffer>
@@ -42,24 +42,28 @@ extern "C"
 static void
 vncEncryptBytes(unsigned char *bytes, const char *passwd, size_t passwd_length)
 {
-	constexpr int KeyLength = 8;
-	unsigned char key[KeyLength];  // Flawfinder: ignore
-	unsigned int i;
+	static constexpr int KeyLength = 8;
+	std::array<unsigned char, KeyLength> key{};  // Flawfinder: ignore
 
 	/* key is simply password padded with nulls */
 
-	for (i = 0; i < KeyLength; i++) {
-		if (i < passwd_length) {
-			key[i] = static_cast<unsigned char>( passwd[i] );
-		} else {
-			key[i] = 0;
+	for( size_t i = 0; i < key.size(); i++ )
+	{
+		if( i < passwd_length )
+		{
+			key.at(i) = static_cast<unsigned char>( passwd[i] );
+		}
+		else
+		{
+			key.at(i) = 0;
 		}
 	}
 
-	rfbDesKey(key, EN0);
+	rfbDesKey( key.data(), EN0 );
 
-	for (i = 0; i < CHALLENGESIZE; i += KeyLength) {
-		rfbDes(bytes+i, bytes+i);
+	for( size_t i = 0; i < CHALLENGESIZE; i += KeyLength )
+	{
+		rfbDes( bytes+i, bytes+i );
 	}
 }
 
@@ -68,12 +72,7 @@ vncEncryptBytes(unsigned char *bytes, const char *passwd, size_t passwd_length)
 
 VncClientProtocol::VncClientProtocol( QTcpSocket* socket, const Password& vncPassword ) :
 	m_socket( socket ),
-	m_state( Disconnected ),
-	m_vncPassword( vncPassword ),
-	m_serverInitMessage(),
-	m_pixelFormat( { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } ),
-	m_framebufferWidth( 0 ),
-	m_framebufferHeight( 0 )
+	m_vncPassword( vncPassword )
 {
 }
 
@@ -81,7 +80,7 @@ VncClientProtocol::VncClientProtocol( QTcpSocket* socket, const Password& vncPas
 
 void VncClientProtocol::start()
 {
-	m_state = Protocol;
+	m_state = State::Protocol;
 }
 
 
@@ -90,19 +89,19 @@ bool VncClientProtocol::read() // Flawfinder: ignore
 {
 	switch( m_state )
 	{
-	case Protocol:
+	case State::Protocol:
 		return readProtocol();
 
-	case SecurityInit:
+	case State::SecurityInit:
 		return receiveSecurityTypes();
 
-	case SecurityChallenge:
+	case State::SecurityChallenge:
 		return receiveSecurityChallenge();
 
-	case SecurityResult:
+	case State::SecurityResult:
 		return receiveSecurityResult();
 
-	case FramebufferInit:
+	case State::FramebufferInit:
 		return receiveServerInitMessage();
 
 	default:
@@ -116,11 +115,9 @@ bool VncClientProtocol::read() // Flawfinder: ignore
 
 bool VncClientProtocol::setPixelFormat( rfbPixelFormat pixelFormat )
 {
-	rfbSetPixelFormatMsg spf;
+	rfbSetPixelFormatMsg spf{};
 
 	spf.type = rfbSetPixelFormat;
-	spf.pad1 = 0;
-	spf.pad2 = 0;
 	spf.format = pixelFormat;
 	spf.format.redMax = qFromBigEndian(pixelFormat.redMax);
 	spf.format.greenMax = qFromBigEndian(pixelFormat.greenMax);
@@ -138,25 +135,23 @@ bool VncClientProtocol::setEncodings( const QVector<uint32_t>& encodings )
 		return false;
 	}
 
-	alignas(rfbSetEncodingsMsg) char buf[sz_rfbSetEncodingsMsg + MAX_ENCODINGS * 4]; // Flawfinder: ignore
+	rfbSetEncodingsMsg setEncodingsMsg{};
+	setEncodingsMsg.type = rfbSetEncodings;
 
-	auto setEncodingsMsg = reinterpret_cast<rfbSetEncodingsMsg *>( buf );
-	auto encs = reinterpret_cast<uint32_t *>( &buf[sz_rfbSetEncodingsMsg] );
-
-	setEncodingsMsg->type = rfbSetEncodings;
-	setEncodingsMsg->pad = 0;
-	setEncodingsMsg->nEncodings = 0;
+	std::array<uint32_t, MAX_ENCODINGS> encs{};
 
 	for( auto encoding : encodings )
 	{
-		encs[setEncodingsMsg->nEncodings++] = qFromBigEndian<uint32_t>( encoding );
+		encs.at(setEncodingsMsg.nEncodings++) = qFromBigEndian<uint32_t>( encoding );
 	}
 
-	const auto len = sz_rfbSetEncodingsMsg + setEncodingsMsg->nEncodings * 4;
+	const auto len = setEncodingsMsg.nEncodings * 4;
 
-	setEncodingsMsg->nEncodings = qFromBigEndian(setEncodingsMsg->nEncodings);
+	setEncodingsMsg.nEncodings = qFromBigEndian(setEncodingsMsg.nEncodings);
 
-	return m_socket->write( buf, len ) == len;
+	return m_socket->write( reinterpret_cast<const char *>( &setEncodingsMsg ), sz_rfbSetEncodingsMsg) ==
+			   sz_rfbSetEncodingsMsg &&
+		   m_socket->write( reinterpret_cast<const char *>( encs.data() ), len ) == len;
 }
 
 
@@ -254,7 +249,7 @@ bool VncClientProtocol::readProtocol()
 
 		m_socket->write( protocol );
 
-		m_state = SecurityInit;
+		m_state = State::SecurityInit;
 
 		return true;
 	}
@@ -289,19 +284,26 @@ bool VncClientProtocol::receiveSecurityTypes()
 			return false;
 		}
 
-		const char securityType = rfbSecTypeVncAuth;
+		char securityType = rfbSecTypeInvalid;
 
-		if( securityTypeList.contains( securityType ) == false )
+		if( securityTypeList.contains( rfbSecTypeVncAuth ) )
 		{
-			vCritical() << "no supported security type!";
+			securityType = rfbSecTypeVncAuth;
+			m_state = State::SecurityChallenge;
+		}
+		else if( securityTypeList.contains( rfbSecTypeNone ) )
+		{
+			securityType = rfbSecTypeNone;
+			m_state = State::SecurityResult;
+		}
+		else
+		{
+			vCritical() << "unsupported security types!" << securityTypeList;
 			m_socket->close();
-
 			return false;
 		}
 
 		m_socket->write( &securityType, sizeof(securityType) );
-
-		m_state = SecurityChallenge;
 
 		return true;
 	}
@@ -315,14 +317,15 @@ bool VncClientProtocol::receiveSecurityChallenge()
 {
 	if( m_socket->bytesAvailable() >= CHALLENGESIZE )
 	{
-		uint8_t challenge[CHALLENGESIZE];
-		m_socket->read( reinterpret_cast<char *>( challenge ), CHALLENGESIZE );
+		std::array<char, CHALLENGESIZE> challenge{};
+		m_socket->read( challenge.data(), challenge.size() );
 
-		vncEncryptBytes( challenge, m_vncPassword.constData(), static_cast<size_t>( m_vncPassword.size() ) );
+		vncEncryptBytes( reinterpret_cast<uint8_t *>( challenge.data() ), m_vncPassword.constData(),
+						 size_t( m_vncPassword.size() ) );
 
-		m_socket->write( reinterpret_cast<const char *>( challenge ), CHALLENGESIZE );
+		m_socket->write( challenge.data(), CHALLENGESIZE );
 
-		m_state = SecurityResult;
+		m_state = State::SecurityResult;
 
 		return true;
 	}
@@ -355,7 +358,7 @@ bool VncClientProtocol::receiveSecurityResult()
 		m_socket->write( reinterpret_cast<const char *>( &clientInitMessage ), sz_rfbClientInitMsg );
 
 		// wait for server init message
-		m_state = FramebufferInit;
+		m_state = State::FramebufferInit;
 
 		return true;
 	}
@@ -394,7 +397,7 @@ bool VncClientProtocol::receiveServerInitMessage()
 			m_framebufferWidth = qFromBigEndian( serverInitMessage->framebufferWidth );
 			m_framebufferHeight = qFromBigEndian( serverInitMessage->framebufferHeight );
 
-			m_state = Running;
+			m_state = State::Running;
 
 			return true;
 		}
@@ -661,7 +664,8 @@ bool VncClientProtocol::handleRectEncodingHextile( QBuffer& buffer,
 	{
 		for( uint x = rx; x < rx+rw; x += 16 )
 		{
-			uint w = 16, h = 16;
+			uint w = 16;
+			uint h = 16;
 			if( rx+rw - x < 16 )
 			{
 				w = rx+rw - x;

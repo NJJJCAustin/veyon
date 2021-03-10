@@ -9,7 +9,7 @@ CPUS=$(nproc)
 mkdir -p $BUILD
 cd $BUILD
 
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr -DLTO=ON $SRC
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr -DWITH_LTO=ON $CMAKE_FLAGS $SRC
 
 echo Building on $CPUS CPUs
 
@@ -30,5 +30,6 @@ if [ -z "$3" ] ; then
 	./cli/veyon-cli about
 else
 	make ${@:3} -j$CPUS
+	fakeroot make package
 fi
 

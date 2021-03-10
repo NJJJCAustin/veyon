@@ -1,7 +1,7 @@
 /*
  * ExternalVncServerConfiguration.h - configuration values for external VNC server
  *
- * Copyright (c) 2017-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2017-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -29,5 +29,7 @@
 #define FOREACH_EXTERNAL_VNC_SERVER_CONFIG_PROPERTY(OP) \
 	OP( ExternalVncServerConfiguration, m_configuration, int, serverPort, setServerPort, "ServerPort", "ExternalVncServer", 5900, Configuration::Property::Flag::Standard ) \
 	OP( ExternalVncServerConfiguration, m_configuration, Configuration::Password, password, setPassword, "Password", "ExternalVncServer", QString(), Configuration::Property::Flag::Standard )
+
+// clazy:excludeall=missing-qobject-macro
 
 DECLARE_CONFIG_PROXY(ExternalVncServerConfiguration, FOREACH_EXTERNAL_VNC_SERVER_CONFIG_PROPERTY)

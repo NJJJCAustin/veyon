@@ -1,7 +1,7 @@
 /*
  * ConfigurationObject.cpp - implementation of ConfigurationObject
  *
- * Copyright (c) 2009-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2009-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -30,20 +30,8 @@
 namespace Configuration
 {
 
-
-Object::Object() :
-	m_store( nullptr ),
-	m_customStore( false ),
-	m_data()
-{
-}
-
-
-
 Object::Object( Store::Backend backend, Store::Scope scope, const QString& storeName ) :
-	m_store( createStore( backend, scope ) ),
-	m_customStore( false ),
-	m_data()
+	m_store( createStore( backend, scope ) )
 {
 	m_store->setName( storeName );
 
@@ -54,8 +42,7 @@ Object::Object( Store::Backend backend, Store::Scope scope, const QString& store
 
 Object::Object( Store* store ) :
 	m_store( store ),
-	m_customStore( true ),
-	m_data()
+	m_customStore( true )
 {
 	reloadFromStore();
 }
@@ -63,8 +50,7 @@ Object::Object( Store* store ) :
 
 
 Object::Object( const Object& obj ) :
-	m_store( nullptr ),
-	m_customStore( false )
+	m_store( nullptr )
 {
 	*this = obj;
 }
@@ -262,7 +248,7 @@ void Object::setValue( const QString& key, const QVariant& value, const QString&
 	if( data != m_data )
 	{
 		m_data = data;
-		emit configurationChanged();
+		Q_EMIT configurationChanged();
 	}
 }
 
@@ -304,7 +290,7 @@ void Object::removeValue( const QString& key, const QString& parentKey )
 	if( data != m_data )
 	{
 		m_data = data;
-		emit configurationChanged();
+		Q_EMIT configurationChanged();
 	}
 }
 

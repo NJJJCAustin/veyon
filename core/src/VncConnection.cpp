@@ -1,7 +1,7 @@
 /*
  * VncConnection.cpp - implementation of VncConnection class
  *
- * Copyright (c) 2008-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2008-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -31,6 +31,7 @@
 #include <QHostAddress>
 #include <QMutexLocker>
 #include <QPixmap>
+#include <QRegularExpression>
 #include <QTime>
 
 #include "PlatformNetworkFunctions.h"
@@ -59,7 +60,7 @@ void VncConnection::hookUpdateFB( rfbClient* client, int x, int y, int w, int h 
 	auto connection = static_cast<VncConnection *>( clientData( client, VncConnectionTag ) );
 	if( connection )
 	{
-		emit connection->imageUpdated( x, y, w, h );
+		Q_EMIT connection->imageUpdated( x, y, w, h );
 	}
 }
 
@@ -83,7 +84,7 @@ rfbBool VncConnection::hookHandleCursorPos( rfbClient* client, int x, int y )
 	auto connection = static_cast<VncConnection *>( clientData( client, VncConnectionTag ) );
 	if( connection )
 	{
-		emit connection->cursorPosChanged( x, y );
+		Q_EMIT connection->cursorPosChanged( x, y );
 	}
 
 	return true;
@@ -109,7 +110,7 @@ void VncConnection::hookCursorShape( rfbClient* client, int xh, int yh, int w, i
 	auto connection = static_cast<VncConnection *>( clientData( client, VncConnectionTag ) );
 	if( connection )
 	{
-		emit connection->cursorShapeUpdated( cursorShape, xh, yh );
+		Q_EMIT connection->cursorShapeUpdated( cursorShape, xh, yh );
 	}
 }
 
@@ -122,7 +123,7 @@ void VncConnection::hookCutText( rfbClient* client, const char* text, int textle
 
 	if( connection && cutText.isEmpty() == false  )
 	{
-		emit connection->gotCut( cutText );
+		Q_EMIT connection->gotCut( cutText );
 	}
 }
 
@@ -134,14 +135,14 @@ void VncConnection::rfbClientLogDebug( const char* format, ... )
 	va_start( args, format );
 
 	static constexpr int MaxMessageLength = 256;
-	char message[MaxMessageLength];
+	std::array<char, MaxMessageLength> message{};
 
-	vsnprintf( message, sizeof(message), format, args );
+	vsnprintf( message.data(), sizeof(message), format, args );
 	message[MaxMessageLength-1] = 0;
 
 	va_end(args);
 
-	vDebug() << QThread::currentThreadId() << message;
+	vDebug() << QThread::currentThreadId() << message.data();
 }
 
 
@@ -164,22 +165,21 @@ void VncConnection::framebufferCleanup( void* framebuffer )
 
 VncConnection::VncConnection( QObject* parent ) :
 	QThread( parent ),
-	m_state( State::Disconnected ),
-	m_framebufferState( FramebufferState::Invalid ),
-	m_controlFlags(),
-	m_client( nullptr ),
-	m_quality( Quality::Default ),
-	m_host(),
-	m_port( -1 ),
-	m_globalMutex(),
-	m_eventQueueMutex(),
-	m_updateIntervalSleeper(),
-	m_framebufferUpdateInterval( 0 ),
-	m_image(),
-	m_scaledScreen(),
-	m_scaledSize(),
-	m_imgLock()
+	m_defaultPort( VeyonCore::config().veyonServerPort() )
 {
+	if( VeyonCore::config().useCustomVncConnectionSettings() )
+	{
+		m_threadTerminationTimeout = VeyonCore::config().vncConnectionThreadTerminationTimeout();
+		m_connectTimeout = VeyonCore::config().vncConnectionConnectTimeout();
+		m_readTimeout = VeyonCore::config().vncConnectionReadTimeout();
+		m_connectionRetryInterval = VeyonCore::config().vncConnectionRetryInterval();
+		m_messageWaitTimeout = VeyonCore::config().vncConnectionMessageWaitTimeout();
+		m_fastFramebufferUpdateInterval = VeyonCore::config().vncConnectionFastFramebufferUpdateInterval();
+		m_framebufferUpdateWatchdogTimeout = VeyonCore::config().vncConnectionFramebufferUpdateWatchdogTimeout();
+		m_socketKeepaliveIdleTime = VeyonCore::config().vncConnectionSocketKeepaliveIdleTime();
+		m_socketKeepaliveInterval = VeyonCore::config().vncConnectionSocketKeepaliveInterval();
+		m_socketKeepaliveCount = VeyonCore::config().vncConnectionSocketKeepaliveCount();
+	}
 }
 
 
@@ -191,7 +191,7 @@ VncConnection::~VncConnection()
 	if( isRunning() )
 	{
 		vWarning() << "Waiting for VNC connection thread to finish.";
-		wait( ThreadTerminationTimeout );
+		wait( m_threadTerminationTimeout );
 	}
 
 	if( isRunning() )
@@ -269,26 +269,30 @@ void VncConnection::setHost( const QString& host )
 	QMutexLocker locker( &m_globalMutex );
 	m_host = host;
 
-	// is IPv6-mapped IPv4 address?
-	QRegExp rx( QStringLiteral( "::[fF]{4}:(\\d+.\\d+.\\d+.\\d+)" ) );
-	if( rx.indexIn( m_host ) == 0 )
+	QRegularExpressionMatch match;
+	if(
+		// if IPv6-mapped IPv4 address use plain IPv4 address as libvncclient cannot handle IPv6-mapped IPv4 addresses on Windows properly
+		( match = QRegularExpression( QStringLiteral("^::[fF]{4}:(\\d+.\\d+.\\d+.\\d+)$") ).match( m_host ) ).hasMatch() ||
+		( match = QRegularExpression( QStringLiteral("^::[fF]{4}:(\\d+.\\d+.\\d+.\\d+):(\\d+)$") ).match( m_host ) ).hasMatch() ||
+		( match = QRegularExpression( QStringLiteral("^\\[::[fF]{4}:(\\d+.\\d+.\\d+.\\d+)\\]:(\\d+)$") ).match( m_host ) ).hasMatch() ||
+		// any other IPv6 address with port number
+		( match = QRegularExpression( QStringLiteral("^\\[([0-9a-fA-F:]+)\\]:(\\d+)$") ).match( m_host ) ).hasMatch() ||
+		// irregular IPv6 address + port number specification where port number can be identified if > 9999
+		( match = QRegularExpression( QStringLiteral("^([0-9a-fA-F:]+):(\\d{5})$"), QRegularExpression::InvertedGreedinessOption ).match( m_host ) ).hasMatch() ||
+		// any other notation with trailing port number
+		( match = QRegularExpression( QStringLiteral("^([^:]+):(\\d+)$") ).match( m_host ) ).hasMatch()
+		)
 	{
-		// then use plain IPv4 address as libvncclient cannot handle
-		// IPv6-mapped IPv4 addresses on Windows properly
-		m_host = rx.cap( 1 );
-	}
-	else if( m_host == QLatin1String( "::1" ) )
-	{
-		m_host = QHostAddress( QHostAddress::LocalHost ).toString();
-	}
-	else if( m_host.count( QLatin1Char(':') ) == 1 )
-	{
-		// hostname + port number?
-		QRegExp rx2( QStringLiteral("(.*[^:]):(\\d+)$") );
-		if( rx2.indexIn( m_host ) == 0 )
+		const auto matchedHost = match.captured( 1 );
+		if( matchedHost.isEmpty() == false )
 		{
-			m_host = rx2.cap( 1 );
-			m_port = rx2.cap( 2 ).toInt();
+			m_host = matchedHost;
+		}
+
+		const auto port = match.captured( 2 ).toInt();
+		if( port > 0 )
+		{
+			m_port = port;
 		}
 	}
 }
@@ -343,7 +347,7 @@ void VncConnection::setFramebufferUpdateInterval( int interval )
 
 void VncConnection::rescaleScreen()
 {
-	if( hasValidFrameBuffer() == false || m_scaledSize.isNull() )
+	if( hasValidFramebuffer() == false || m_scaledSize.isNull() )
 	{
 		m_scaledScreen = {};
 		return;
@@ -424,16 +428,17 @@ void VncConnection::establishConnection()
 		m_client->HandleCursorPos = hookHandleCursorPos;
 		m_client->GotCursorShape = hookCursorShape;
 		m_client->GotXCutText = hookCutText;
-		m_client->connectTimeout = ConnectTimeout;
+		m_client->connectTimeout = m_connectTimeout / 1000;
+		m_client->readTimeout = m_readTimeout / 1000;
 		setClientData( VncConnectionTag, this );
 
-		emit connectionPrepared();
+		Q_EMIT connectionPrepared();
 
 		m_globalMutex.lock();
 
 		if( m_port < 0 ) // use default port?
 		{
-			m_client->serverPort = VeyonCore::config().primaryServicePort();
+			m_client->serverPort = m_defaultPort;
 		}
 		else
 		{
@@ -452,11 +457,11 @@ void VncConnection::establishConnection()
 		{
 			m_framebufferUpdateWatchdog.restart();
 
-			emit connectionEstablished();
+			Q_EMIT connectionEstablished();
 
 			VeyonCore::platform().networkFunctions().
 					configureSocketKeepalive( static_cast<PlatformNetworkFunctions::Socket>( m_client->sock ), true,
-											  SocketKeepaliveIdleTime, SocketKeepaliveInterval, SocketKeepaliveCount );
+											  m_socketKeepaliveIdleTime, m_socketKeepaliveInterval, m_socketKeepaliveCount );
 
 			setState( State::Connected );
 		}
@@ -480,7 +485,7 @@ void VncConnection::establishConnection()
 				}
 				else
 				{
-					setState( State::ServiceUnreachable );
+					setState( State::ServerNotRunning );
 				}
 			}
 			else if( m_framebufferState == FramebufferState::Invalid )
@@ -502,7 +507,7 @@ void VncConnection::establishConnection()
 			else
 			{
 				// default: retry every second
-				m_updateIntervalSleeper.wait( &sleeperMutex, QDeadlineTimer( ConnectionRetryInterval ) );
+				m_updateIntervalSleeper.wait( &sleeperMutex, QDeadlineTimer( m_connectionRetryInterval ) );
 			}
 			sleeperMutex.unlock();
 		}
@@ -522,12 +527,13 @@ void VncConnection::handleConnection()
 	{
 		loopTimer.start();
 
-		const int i = WaitForMessage( m_client, MessageWaitTimeout );
+		const int i = WaitForMessage( m_client, m_messageWaitTimeout );
 		if( isControlFlagSet( ControlFlag::TerminateThread ) || i < 0 )
 		{
 			break;
 		}
-		else if( i )
+
+		if( i )
 		{
 			// handle all available messages
 			bool handledOkay = true;
@@ -546,11 +552,11 @@ void VncConnection::handleConnection()
 		const auto remainingUpdateInterval = m_framebufferUpdateInterval - loopTimer.elapsed();
 
 		if( m_framebufferState == FramebufferState::Initialized ||
-			m_framebufferUpdateWatchdog.elapsed() >= qMax<qint64>( 2*m_framebufferUpdateInterval, FramebufferUpdateWatchdogTimeout ) )
+			m_framebufferUpdateWatchdog.elapsed() >= qMax<qint64>( 2*m_framebufferUpdateInterval, m_framebufferUpdateWatchdogTimeout ) )
 		{
 			SendFramebufferUpdateRequest( m_client, 0, 0, m_client->width, m_client->height, false );
 
-			const auto remainingFastUpdateInterval = FastFramebufferUpdateInterval - loopTimer.elapsed();
+			const auto remainingFastUpdateInterval = m_fastFramebufferUpdateInterval - loopTimer.elapsed();
 
 			sleeperMutex.lock();
 			m_updateIntervalSleeper.wait( &sleeperMutex, QDeadlineTimer( remainingFastUpdateInterval ) );
@@ -588,7 +594,7 @@ void VncConnection::setState( State state )
 {
 	if( m_state.exchange( state ) != state )
 	{
-		emit stateChanged();
+		Q_EMIT stateChanged();
 	}
 }
 
@@ -598,11 +604,11 @@ void VncConnection::setControlFlag( VncConnection::ControlFlag flag, bool on )
 {
 	if( on )
 	{
-		m_controlFlags |= static_cast<int>( flag );
+		m_controlFlags |= uint( flag );
 	}
 	else
 	{
-		m_controlFlags &= ~static_cast<int>( flag );
+		m_controlFlags &= ~uint( flag );
 	}
 }
 
@@ -610,7 +616,7 @@ void VncConnection::setControlFlag( VncConnection::ControlFlag flag, bool on )
 
 bool VncConnection::isControlFlagSet( VncConnection::ControlFlag flag )
 {
-	return m_controlFlags & static_cast<int>( flag );
+	return m_controlFlags & uint( flag );
 }
 
 
@@ -624,7 +630,7 @@ bool VncConnection::initFrameBuffer( rfbClient* client )
 		return false;
 	}
 
-	const auto pixelCount = static_cast<uint32_t>( client->width ) * client->height;
+	const auto pixelCount = uint32_t(client->width) * uint32_t(client->height);
 
 	client->frameBuffer = reinterpret_cast<uint8_t *>( new RfbPixel[pixelCount] );
 
@@ -671,7 +677,7 @@ bool VncConnection::initFrameBuffer( rfbClient* client )
 
 	m_framebufferState = FramebufferState::Initialized;
 
-	emit framebufferSizeChanged( client->width, client->height );
+	Q_EMIT framebufferSizeChanged( client->width, client->height );
 
 	return true;
 }
@@ -685,7 +691,7 @@ void VncConnection::finishFrameBufferUpdate()
 	m_framebufferState = FramebufferState::Valid;
 	setControlFlag( ControlFlag::ScaledScreenNeedsUpdate, true );
 
-	emit framebufferUpdateComplete();
+	Q_EMIT framebufferUpdateComplete();
 }
 
 
@@ -744,7 +750,7 @@ bool VncConnection::isEventQueueEmpty()
 
 
 
-void VncConnection::mouseEvent( int x, int y, int buttonMask )
+void VncConnection::mouseEvent( int x, int y, uint buttonMask )
 {
 	enqueueEvent( new VncPointerEvent( x, y, buttonMask ), true );
 }

@@ -1,7 +1,7 @@
 /*
  * VeyonWorker.cpp - basic implementation of Veyon Worker
  *
- * Copyright (c) 2018-2019 Tobias Junghans <tobydox@veyon.io>
+ * Copyright (c) 2018-2021 Tobias Junghans <tobydox@veyon.io>
  *
  * This file is part of Veyon - https://veyon.io
  *
@@ -33,9 +33,7 @@ VeyonWorker::VeyonWorker( const QString& featureUid, QObject* parent ) :
 	QObject( parent ),
 	m_core( QCoreApplication::instance(),
 			VeyonCore::Component::Worker,
-			QStringLiteral( "FeatureWorker-" ) + VeyonCore::formattedUuid( featureUid ) ),
-	m_featureManager(),
-	m_workerManagerConnection( nullptr )
+			QStringLiteral( "FeatureWorker-" ) + VeyonCore::formattedUuid( featureUid ) )
 {
 	const Feature* workerFeature = nullptr;
 
@@ -52,7 +50,7 @@ VeyonWorker::VeyonWorker( const QString& featureUid, QObject* parent ) :
 		qFatal( "Could not find specified feature" );
 	}
 
-	if( m_core.config().disabledFeatures().contains( featureUid ) )
+	if( VeyonCore::config().disabledFeatures().contains( featureUid ) )
 	{
 		qFatal( "Specified feature is disabled by configuration!" );
 	}

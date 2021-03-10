@@ -1,7 +1,7 @@
 /*
  *  Screenshot.cpp - class representing a screenshot
  *
- *  Copyright (c) 2010-2019 Tobias Junghans <tobydox@veyon.io>
+ *  Copyright (c) 2010-2021 Tobias Junghans <tobydox@veyon.io>
  *
  *  This file is part of Veyon - https://veyon.io
  *
@@ -24,6 +24,7 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QMetaEnum>
@@ -35,11 +36,11 @@
 #include "Computer.h"
 #include "ComputerControlInterface.h"
 #include "Filesystem.h"
+#include "PlatformFilesystemFunctions.h"
 
 Screenshot::Screenshot( const QString &fileName, QObject* parent ) :
 	QObject( parent ),
-	m_fileName( fileName ),
-	m_image()
+	m_fileName( fileName )
 {
 	if( !m_fileName.isEmpty() && QFileInfo( m_fileName ).isFile() )
 	{
@@ -57,7 +58,7 @@ void Screenshot::take( const ComputerControlInterface::Pointer& computerControlI
 		userLogin = tr( "unknown" );
 	}
 
-	const auto dir = VeyonCore::filesystem().expandPath( VeyonCore::config().screenshotDirectory() );
+	const auto dir = VeyonCore::filesystem().screenshotDirectoryPath();
 
 	if( VeyonCore::filesystem().ensurePathExists( dir ) == false )
 	{
@@ -73,6 +74,22 @@ void Screenshot::take( const ComputerControlInterface::Pointer& computerControlI
 
 	// construct filename
 	m_fileName = dir + QDir::separator() + constructFileName( userLogin, computerControlInterface->computer().hostAddress() );
+
+	QFile outputFile( m_fileName );
+	if( VeyonCore::platform().filesystemFunctions().openFileSafely(
+			&outputFile,
+			QFile::WriteOnly | QFile::Truncate,
+			QFile::ReadOwner | QFile::WriteOwner ) == false )
+	{
+		const auto msg = tr( "Could not open screenshot file %1 for writing." ).arg( m_fileName );
+		vCritical() << msg.toUtf8().constData();
+		if( qobject_cast<QApplication *>( QCoreApplication::instance() ) )
+		{
+			QMessageBox::critical( nullptr, tr( "Screenshot" ), msg );
+		}
+
+		return;
+	}
 
 	// construct caption
 	auto user = userLogin;
@@ -94,7 +111,7 @@ void Screenshot::take( const ComputerControlInterface::Pointer& computerControlI
 	QPainter painter( &m_image );
 
 	auto font = painter.font();
-	font.setPointSize( 14 );
+	font.setPointSize( ScreenshotLabelFontPointSize );
 	font.setBold( true );
 	painter.setFont( font );
 
@@ -128,13 +145,14 @@ void Screenshot::take( const ComputerControlInterface::Pointer& computerControlI
 	m_image.setText( metaDataKey( MetaData::Date ), date );
 	m_image.setText( metaDataKey( MetaData::Time ), time );
 
-	m_image.save( m_fileName, "PNG", 50 );
+	m_image.save( &outputFile, "PNG", 50 );
+
+	Q_EMIT VeyonCore::filesystem().screenshotDirectoryModified();
 }
 
 
 
-QString Screenshot::constructFileName( const QString& user, const QString& hostAddress,
-									   const QDate& date, const QTime& time )
+QString Screenshot::constructFileName( const QString& user, const QString& hostAddress, QDate date, QTime time )
 {
 	const auto userSimplified = VeyonCore::stripDomain( user ).toLower().remove(
 				QRegularExpression( QStringLiteral("[^a-z0-9.]") ) );
